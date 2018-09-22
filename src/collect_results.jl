@@ -160,13 +160,6 @@ for i in 1:ntest
     vss[i] = std(simvals[i])
 end
 
-prob = probs[23]
-solver = PBVISolver()
-sol = rpbvi.solve(solver, prob)
-bu = updater(sol)
-simprob = simprobs[23]
-simulate(psim, simprob, sol, bu)
-
 rstructs = (policies, simvals)
 ids = collect(1:size(dfbaby,1))
 dfbaby[:ID] = ids
