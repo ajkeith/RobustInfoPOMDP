@@ -117,22 +117,29 @@ dfbaby = @from run in new_factors begin
             @collect DataFrame
 end
 
-probs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(size(dfbaby,1))
-simprobs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(size(dfbaby,1))
-for i = 1:size(dfbaby,1)
-    sname = dfbaby[:Short_Name][i]
-    robust = dfbaby[:Solution][i]
-    info = dfbaby[:Reward][i]
-    err = dfbaby[:Uncertainty_Size][i]
-    rewardfunc = dfbaby[:Information_Function][i]
+dfexp = @from run in new_factors begin
+            @where run.Short_Name == "tiger"
+            @select run
+            @collect DataFrame
+end
+
+nrows = size(dfexp,1)
+probs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(nrows)
+simprobs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(nrows)
+for i = 1:nrows
+    sname = dfexp[:Short_Name][i]
+    robust = dfexp[:Solution][i]
+    info = dfexp[:Reward][i]
+    err = dfexp[:Uncertainty_Size][i]
+    rewardfunc = dfexp[:Information_Function][i]
     probs[i] = build(sname, robust, info , err, rewardfunc)
-    simrobust = (dfbaby[:Dynamics][i] == "Nominal") ? "Standard" : "Robust"
+    simrobust = (dfexp[:Dynamics][i] == "Nominal") ? "Standard" : "Robust"
     simprobs[i] = build(sname, simrobust, info, err, rewardfunc)
 end
 
 
-# ntest = size(dfbaby,1)
-ntest = size(dfbaby,1)
+# ntest = size(dfexp,1)
+ntest = size(dfexp,1)
 solver = PBVISolver()
 nsteps = 1_000
 nreps = 5
@@ -161,9 +168,15 @@ for i in 1:ntest
 end
 
 rstructs = (policies, simvals)
-ids = collect(1:size(dfbaby,1))
-dfbaby[:ID] = ids
+ids = collect(1:size(dfexp,1))
+dfexp[:ID] = ids
 rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss)
-df = join(dfbaby, rdata, on = :ID)
+df = join(dfexp, rdata, on = :ID)
+simdata = hcat(ids, hcat(simvals...)') |> DataFrame
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
-CSV.write(joinpath(path,"exp_results.csv"), df)
+CSV.write(joinpath(path,"exp_results_tiger.csv"), df)
+CSV.write(joinpath(path,"exp_sim_values_tiger.csv"), simdata)
+
+# using Plots
+# sol = policies[1]
+# plot([0,1], sol.alphas, labels = sol.action_map, legend = :bottomright)

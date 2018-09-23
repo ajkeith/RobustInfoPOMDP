@@ -1,0 +1,31 @@
+Problem,Short_Name,Solution,Reward,Information_Function,Uncertainty_Size,Dynamics,ID,ExpectedValue,SimMean,SimStd
+Tiger,tiger,Standard,Standard,NA,0.0,Nominal,1,1.5977182852940253,-3.9999999999999987,0.0
+Tiger,tiger,Standard,Standard,NA,0.025,Ambiguous,2,1.5977182852940253,-3.9999999999999987,0.0
+Tiger,tiger,Standard,Standard,NA,0.1,Ambiguous,3,1.5977182852940253,-3.9999999999999987,0.0
+Tiger,tiger,Standard,Standard,NA,0.3,Ambiguous,4,1.5977182852940253,-3.9999999999999987,0.0
+Tiger,tiger,Standard,Information,Simple,0.0,Nominal,5,2.2399800935020657,0.0,0.0
+Tiger,tiger,Standard,Information,Simple,0.025,Ambiguous,6,2.2399800935020657,0.0,0.0
+Tiger,tiger,Standard,Information,Simple,0.1,Ambiguous,7,2.2399800935020657,0.0,0.0
+Tiger,tiger,Standard,Information,Simple,0.3,Ambiguous,8,2.2399800935020657,0.0,0.0
+Tiger,tiger,Standard,Information,Approximate Entropy,0.0,Nominal,9,3.007363017332087,1.9999999999999993,0.0
+Tiger,tiger,Standard,Information,Approximate Entropy,0.025,Ambiguous,10,3.007363017332087,1.9999999999999993,0.0
+Tiger,tiger,Standard,Information,Approximate Entropy,0.1,Ambiguous,11,3.007363017332087,1.9999999999999993,0.0
+Tiger,tiger,Standard,Information,Approximate Entropy,0.3,Ambiguous,12,3.007363017332087,1.9999999999999993,0.0
+Tiger,tiger,Robust,Standard,NA,0.025,Nominal,13,-0.3722165213669186,-33.431820993284305,22.90733726381219
+Tiger,tiger,Robust,Standard,NA,0.025,Ambiguous,14,-0.3722165213669186,4.019510650836808,1.5604458053024766
+Tiger,tiger,Robust,Standard,NA,0.1,Nominal,15,-3.7747459411621094,-33.361128528690145,27.162551866333473
+Tiger,tiger,Robust,Standard,NA,0.1,Ambiguous,16,-3.7747459411621094,-24.692619346584536,41.14217897429763
+Tiger,tiger,Robust,Standard,NA,0.3,Nominal,17,-2.0775794952259945,-3.9999999999999987,0.0
+Tiger,tiger,Robust,Standard,NA,0.3,Ambiguous,18,-2.0775794952259945,-3.9999999999999987,0.0
+Tiger,tiger,Robust,Information,Simple,0.025,Nominal,19,2.023446789286992,1.8165536419853368,0.4792665225322879
+Tiger,tiger,Robust,Information,Simple,0.025,Ambiguous,20,2.023446789286992,2.480616370712906,0.32352722498087505
+Tiger,tiger,Robust,Information,Simple,0.1,Nominal,21,1.3511972166029766,1.3640477904450967,0.362540491953514
+Tiger,tiger,Robust,Information,Simple,0.1,Ambiguous,22,1.3511972166029766,1.9885591036700059,0.35743136426169525
+Tiger,tiger,Robust,Information,Simple,0.3,Nominal,23,0.6742419001648903,4.531294486956903e-16,1.5182102299909238e-16
+Tiger,tiger,Robust,Information,Simple,0.3,Ambiguous,24,0.6742419001648903,6.315357717394034e-16,1.4315015015439227e-16
+Tiger,tiger,Robust,Information,Approximate Entropy,0.025,Nominal,25,2.899096365224551,2.8419216646031638,0.18758132388420254
+Tiger,tiger,Robust,Information,Approximate Entropy,0.025,Ambiguous,26,2.899096365224551,3.123540485376626,0.18937016416717856
+Tiger,tiger,Robust,Information,Approximate Entropy,0.1,Nominal,27,2.56518448751937,2.5241968389073604,0.08881437138327665
+Tiger,tiger,Robust,Information,Approximate Entropy,0.1,Ambiguous,28,2.56518448751937,2.9440285048397685,0.1495759264668319
+Tiger,tiger,Robust,Information,Approximate Entropy,0.3,Nominal,29,2.4155684309777676,2.032017927410547,0.0034445545103173845
+Tiger,tiger,Robust,Information,Approximate Entropy,0.3,Ambiguous,30,2.4155684309777676,2.044846382398199,0.010420485857681041
