@@ -177,6 +177,40 @@ path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
 CSV.write(joinpath(path,"exp_results_tiger.csv"), df)
 CSV.write(joinpath(path,"exp_sim_values_tiger.csv"), simdata)
 
+
+
+# using RPOMDPs, RPOMDPModels, RPOMDPToolbox
+# using RobustValueIteration
+# const rpbvi = RobustValueIteration
+# srand(93974)
+# prob = TigerInfoPOMDP()
+# probrip = TigerInfoRPOMDP()
+# solver = PBVISolver()
+# sol = rpbvi.solve(solver, prob)
+# solrip = rpbvi.solve(solver, probrip)
+# bu = updater(sol)
+# burip = updater(solrip)
+#
+# psim = RolloutSimulator(max_steps = 10)
+# simulate(psim, prob, sol, bu)
+# simulate(psim, probrip, solrip, burip)
+#
+# hr = HistoryRecorder(max_steps = 10)
+# h = simulate(hr, prob, sol)
+# hrip = simulate(hr, probrip, solrip)
+#
+# [belief_hist(h)[i].b for i=1:10]
+#
+# # db = DiscreteBelief(prob, [0.5, 0.5])
+# # dbrip = DiscreteBelief(probrip, [0.5, 0.5])
+# # u = update(bu, db, :listenleft, :tigerleft)
+# # urip = update(burip, dbrip, :listenleft, :tigerleft)
+# #
+# # rng = MersenneTwister(2304)
+# # initialize_belief(updater(sol), initial_state_distribution(prob))
+# # sp, o, r, i = generate_sori(prob, [0.5, 0.5], :tigerleft, :listen, rng)
+# # sp, o, r = generate_sor(prob, [0.5, 0.5], :tigerleft, :listen, rng)
+#
 # using Plots
-# sol = policies[1]
-# plot([0,1], sol.alphas, labels = sol.action_map, legend = :bottomright)
+# sp = sol
+# plot([0,1], sp.alphas, labels = sp.action_map, legend = :bottomright)
