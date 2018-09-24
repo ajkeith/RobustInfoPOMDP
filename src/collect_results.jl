@@ -67,9 +67,9 @@ function build(sname, robust, info, err, rewardfunc)
     end
     if sname == "baby"
         if robust == "Robust"
-            prob = (info == "Standard") ? BabyRPOMDP(err) : BabyRIPOMDP(err, r)
+            prob = (info == "Standard") ? BabyRPOMDP(err) : BabyInfoRPOMDP(err, r)
         else
-            prob = (info == "Standard") ? BabyPOMDP() : BabyIPOMDP(r)
+            prob = (info == "Standard") ? BabyPOMDP() : BabyInfoPOMDP(r)
         end
     elseif sname == "maze1x3"
         if robust == "Robust"
@@ -103,22 +103,16 @@ function build(sname, robust, info, err, rewardfunc)
         end
     elseif sname == "tiger"
         if robust == "Robust"
-            prob = info == "Standard" ? TigerRPOMDP(err) : TigerRIPOMDP(err, r)
+            prob = info == "Standard" ? TigerRPOMDP(err) : TigerInfoRPOMDP(err, r)
         else
-            prob = info == "Standard" ? TigerPOMDP() : TigerIPOMDP(r)
+            prob = info == "Standard" ? TigerPOMDP() : TigerInfoPOMDP(r)
         end
     end
     prob
 end
 
-dfbaby = @from run in new_factors begin
-            @where run.Short_Name == "baby"
-            @select run
-            @collect DataFrame
-end
-
 dfexp = @from run in new_factors begin
-            @where run.Short_Name == "tiger"
+            @where run.Short_Name == "baby"
             @select run
             @collect DataFrame
 end
@@ -167,15 +161,14 @@ for i in 1:ntest
     vss[i] = std(simvals[i])
 end
 
-rstructs = (policies, simvals)
 ids = collect(1:size(dfexp,1))
 dfexp[:ID] = ids
 rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss)
 df = join(dfexp, rdata, on = :ID)
 simdata = hcat(ids, hcat(simvals...)') |> DataFrame
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
-CSV.write(joinpath(path,"exp_results_tiger.csv"), df)
-CSV.write(joinpath(path,"exp_sim_values_tiger.csv"), simdata)
+CSV.write(joinpath(path,"exp_results_baby.csv"), df)
+CSV.write(joinpath(path,"exp_sim_values_baby.csv"), simdata)
 
 
 
