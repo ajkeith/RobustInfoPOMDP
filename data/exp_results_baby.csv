@@ -1,0 +1,31 @@
+Problem,Short_Name,Solution,Reward,Information_Function,Uncertainty_Size,Dynamics,ID,ExpectedValue,SimMean,SimStd
+Crying Baby,baby,Standard,Standard,NA,0.0,Nominal,1,-10.727688222484073,-15.423975178885692,8.686812757171747
+Crying Baby,baby,Standard,Standard,NA,0.025,Ambiguous,2,-10.727688222484073,-16.348789969577204,17.986725744556402
+Crying Baby,baby,Standard,Standard,NA,0.1,Ambiguous,3,-10.727688222484073,-22.583283114048903,9.538935134485822
+Crying Baby,baby,Standard,Standard,NA,0.3,Ambiguous,4,-10.727688222484073,-30.758861510574054,14.970047587506613
+Crying Baby,baby,Standard,Information,Simple,0.0,Nominal,5,3.1966019421461596,3.145588585401286,0.10482842584358171
+Crying Baby,baby,Standard,Information,Simple,0.025,Ambiguous,6,3.1966019421461596,3.147175746349488,0.2017205609608415
+Crying Baby,baby,Standard,Information,Simple,0.1,Ambiguous,7,3.1966019421461596,3.1217886343454193,0.1115769142572594
+Crying Baby,baby,Standard,Information,Simple,0.3,Ambiguous,8,3.1966019421461596,2.944240986468496,0.2097134380607845
+Crying Baby,baby,Standard,Information,Approximate Entropy,0.0,Nominal,9,3.5348829893246796,3.433974804286053,0.1346295239922509
+Crying Baby,baby,Standard,Information,Approximate Entropy,0.025,Ambiguous,10,3.5348829893246796,3.471405688952293,0.08039955939108206
+Crying Baby,baby,Standard,Information,Approximate Entropy,0.1,Ambiguous,11,3.5348829893246796,3.445161331135867,0.08738110229642107
+Crying Baby,baby,Standard,Information,Approximate Entropy,0.3,Ambiguous,12,3.5348829893246796,3.4401897525257423,0.07589303983266607
+Crying Baby,baby,Robust,Standard,NA,0.025,Nominal,13,-14.124923569439831,-37.445423717672966,19.743697069683797
+Crying Baby,baby,Robust,Standard,NA,0.025,Ambiguous,14,-14.124923569439831,-41.02276630437677,12.166798982659222
+Crying Baby,baby,Robust,Standard,NA,0.1,Nominal,15,-24.07033058276608,-12.445795241926609,8.71474002018571
+Crying Baby,baby,Robust,Standard,NA,0.1,Ambiguous,16,-24.07033058276608,-31.124018767162134,14.376800065811528
+Crying Baby,baby,Robust,Standard,NA,0.3,Nominal,17,-51.04813958789671,-21.491734127525753,13.025269566280432
+Crying Baby,baby,Robust,Standard,NA,0.3,Ambiguous,18,-51.04813958789671,-27.08870750743489,7.091897153740554
+Crying Baby,baby,Robust,Information,Simple,0.025,Nominal,19,2.968152948324673,1.8688624264962765,0.04169339750232817
+Crying Baby,baby,Robust,Information,Simple,0.025,Ambiguous,20,2.968152948324673,1.9001250043247548,0.06964822379292972
+Crying Baby,baby,Robust,Information,Simple,0.1,Nominal,21,2.467749422504639,2.19267648605937,0.015344433796869771
+Crying Baby,baby,Robust,Information,Simple,0.1,Ambiguous,22,2.467749422504639,2.101609239216577,0.14922896273539893
+Crying Baby,baby,Robust,Information,Simple,0.3,Nominal,23,1.33096456980582,1.3747456501103499,0.3317280084281495
+Crying Baby,baby,Robust,Information,Simple,0.3,Ambiguous,24,1.33096456980582,1.197844129605969,0.2656594930711278
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.025,Nominal,25,3.3723882417569078,3.0353750397313357,0.07659469023453384
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.025,Ambiguous,26,3.3723882417569078,3.083726384923686,0.08470331543294808
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.1,Nominal,27,3.1286203303857953,3.0191085333524548,0.017658789224547805
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.1,Ambiguous,28,3.1286203303857953,2.9979583952057864,0.03480353904610378
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.3,Nominal,29,2.679442022235846,2.460504488503338,0.1334288899921311
+Crying Baby,baby,Robust,Information,Approximate Entropy,0.3,Ambiguous,30,2.679442022235846,2.4832876050774284,0.15776450663149835
