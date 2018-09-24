@@ -2,7 +2,7 @@
 # eventually move this to a jupyter lab/notebook
 # rename PBVI to RPBVI
 # find out why rollout and solution value don't match
-# write pomdp txt file for crying baby
+# write pomdp txt file for baby, babyinfo, and tigerinfo (and others?)
 
 # load packages
 using RPOMDPs, RPOMDPModels, RPOMDPToolbox, RobustValueIteration
@@ -111,8 +111,9 @@ function build(sname, robust, info, err, rewardfunc)
     prob
 end
 
+sname = "tiger"
 dfexp = @from run in new_factors begin
-            @where run.Short_Name == "baby"
+            @where run.Short_Name == sname
             @select run
             @collect DataFrame
 end
@@ -167,8 +168,10 @@ rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss)
 df = join(dfexp, rdata, on = :ID)
 simdata = hcat(ids, hcat(simvals...)') |> DataFrame
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
-CSV.write(joinpath(path,"exp_results_baby.csv"), df)
-CSV.write(joinpath(path,"exp_sim_values_baby.csv"), simdata)
+fnresults = string("exp_results_", sname, ".csv")
+fnsim = string("exp_sim_values_", sname, ".csv")
+CSV.write(joinpath(path, fnresults), df)
+CSV.write(joinpath(path, fnsim), simdata)
 
 
 
