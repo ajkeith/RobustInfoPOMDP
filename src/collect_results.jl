@@ -135,7 +135,7 @@ end
 
 # ntest = size(dfexp,1)
 ntest = size(dfexp,1)
-solver = PBVISolver()
+solver = RPBVISolver()
 nsteps = 1_000
 nreps = 5
 psim = RolloutSimulator(max_steps = nsteps)
@@ -181,7 +181,7 @@ CSV.write(joinpath(path, fnsim), simdata)
 # srand(93974)
 # prob = TigerInfoPOMDP()
 # probrip = TigerInfoRPOMDP()
-# solver = PBVISolver()
+# solver = RPBVISolver()
 # sol = rpbvi.solve(solver, prob)
 # solrip = rpbvi.solve(solver, probrip)
 # bu = updater(sol)
@@ -210,3 +210,12 @@ CSV.write(joinpath(path, fnsim), simdata)
 # using Plots
 # sp = sol
 # plot([0,1], sp.alphas, labels = sp.action_map, legend = :bottomright)
+
+# # test very small ambiguity sets
+# prob1 = BabyPOMDP()
+# prob = BabyRPOMDP(0.0001)
+# solver = RPBVISolver()
+# sol1 = rpbvi.solve(solver, prob1)
+# sol = rpbvi.solve(solver, prob)
+# v1 = value(sol1, initial_belief(prob1))
+# v = value(sol, initial_belief(prob))
