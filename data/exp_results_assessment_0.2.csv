@@ -1,0 +1,3 @@
+ID,ExpectedValue,SimMean,SimStd,SimMin
+Nominal,2.4378142461783607,NaN,NaN,NaN
+Robust,1.8630001944845858,3.20564044e-315,0.0,0.0
