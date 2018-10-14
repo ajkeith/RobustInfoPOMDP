@@ -1,17 +1,16 @@
 using RPOMDPModels, RPOMDPs, RPOMDPToolbox
 using RobustValueIteration
 using SimpleProbabilitySets
-using DataFrames, ProgressMeter, CSV
+using DataFrames, ProgressMeter, CSV, BenchmarkTools
 const RPBVI = RobustValueIteration
 TOL = 1e-6
 
 # intialize problems
-discount = 0.75
-b0 = zeros(27); b0[1] = 1 # initial belief of no threat
 p = CyberPOMDP()
 ip = CyberIPOMDP()
 rp = CyberRPOMDP()
 rip = CyberRIPOMDP()
+tip = CyberTestIPOMDP()
 
 # select belief points
 s0 = fill(1/27, 27);
@@ -38,16 +37,18 @@ bs[nS] = vcat(fill(0.0, nS - 1), 1.0)
 push!(bs, fill(1/nS, nS))
 
 # intialize solver
-solver = RPBVISolver(beliefpoints = bs, max_iterations = 100)
+solver = RPBVISolver(beliefpoints = bs, max_iterations = 10)
 
 # solve
-solip = RPBVI.solve(solver, ip)
-solrip = RPBVI.solve(solver, rip)
+@time solip = RPBVI.solve(solver, ip); # 352 sec at 100 iter
+@time solrip = RPBVI.solve(solver, rip); # 1339 sec at 10 iter
+@time soltip = RPBVI.solve(solver, tip)
 
 # calculate values
 e1 = zeros(27); e1[1] = 1
 println("Standard Value: ", policyvalue(solip, e1))
 println("Robust Value: ", policyvalue(solrip, e1))
+println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
 
 # ipomdp and ripomdp actions for some interesting states
 actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
@@ -57,16 +58,16 @@ dbsip = [DiscreteBelief(ip, states(ip), s) for s in ss]
 asip = [action(solip, db) for db in dbsip]
 dbsrip = [DiscreteBelief(rip, states(rip), s) for s in ss]
 asrip = [action(solrip, db) for db in dbsrip]
-actiondata = DataFrame(Belief = actionind, StdAction = asip, RobustAction = asrip)
+dbstip = [DiscreteBelief(tip, states(tip), s) for s in ss]
+astip = [action(soltip, db) for db in dbstip]
+actiondata = DataFrame(Belief = actionind, StdAction = asip, RobustAction = asrip, OffNominalAction = astip)
 @show actiondata
 
 # sim values for nominal and robust solutions for off-nominal case
-# poff = CyberTestPOMDP()
-poff = CyberPOMDP()
-ntest = 2
-nreps = 3
+ipoff = CyberTestIPOMDP()
+ntest = 3
+nreps = 5
 nsteps = 10
-poff = CyberTestPOMDP()
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = Array{Array{Float64}}(ntest) # simulated values
 ves = Array{Float64}(ntest) # expected values
@@ -76,23 +77,31 @@ vmins = Array{Float64}(ntest) # min of sim values
 
 srand(2394872)
 for i in 1:1
-    println("Run ", ceil(Int, i / 2))
+    # println("Run ", ceil(Int, i / 2))
     buip, burip = updater(solip), updater(solrip)
-    simvals[i] = @showprogress 1 "Simulating nominal value..." [simulate(psim, poff, solip, buip) for j=1:nreps]
+    simvals[i] = @showprogress 1 "Simulating nominal value..." [simulate(psim, ipoff, solip, buip) for j=1:nreps]
     vms[i] = mean(simvals[i])
     vss[i] = std(simvals[i])
     vmins[i] = minimum(simvals[i])
-    simvals[i+1] = @showprogress 1 "Simulating robust value..." [simulate(psim, poff, solrip, burip) for j=1:nreps]
-    vms[i+1] = mean(simvals[i+1])
-    vss[i+1] = std(simvals[i+1])
-    vmins[i+1] = minimum(simvals[i+1])
+    # simvals[i+1] = @showprogress 1 "Simulating robust value..." [simulate(psim, ipoff, solrip, burip) for j=1:nreps]
+    # vms[i+1] = mean(simvals[i+1])
+    # vss[i+1] = std(simvals[i+1])
+    # vmins[i+1] = minimum(simvals[i+1])
+    simvals[i+2] = @showprogress 1 "Simulating offnominal value..." [simulate(psim, ipoff, soltip, burip) for j=1:nreps]
+    vms[i+2] = mean(simvals[i+2])
+    vss[i+2] = std(simvals[i+2])
+    vmins[i+2] = minimum(simvals[i+2])
 end
 
 sname = "assessment"
-sversion = "0.2"
-ves = [policyvalue(solip, e1), policyvalue(solrip, e1)]
-rdata = DataFrame(ID = ["Nominal", "Robust"], ExpectedValue = ves, SimMean = vms, SimStd = vss, SimMin = vmins)
-simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2])
+sversion = "1.2"
+ves = [policyvalue(solip, e1), policyvalue(solrip, e1), policyvalue(soltip, e1)]
+rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpectedValue = ves, SimMean = vms, SimStd = vss, SimMin = vmins)
+simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2], OffNominal = simvals[3])
+@show rdata
+@show simdata
+
+
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
 fnresults = string("exp_results_", sname, "_", sversion, ".csv")
 fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
