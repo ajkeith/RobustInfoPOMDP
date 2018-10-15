@@ -49,10 +49,7 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 ntest = 3
 nreps = 50
 nsteps = 100
-# IMPORTANT: need to find a way to have both default and worst sims
-# right now I can only make worst sims (but some important and good results need the default)
-# psim_default = RolloutSimulator(max_steps = nsteps)
-psim_worst = RolloutSimulator(solrip.alphas, max_steps = nsteps)
+psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
 ves = Array{Float64}(ntest) # expected values
@@ -64,14 +61,18 @@ pss = Array{Float64}(ntest) # std percent correct
 
 rseed = 92378432
 simprob = rip
-psim = psim_worst
+simdynamics = :worst
 for i in 1:1
     # println("Run ", ceil(Int, i / 2))
+    buip, burip, butip = updater(solip), updater(solrip), updater(soltip)
     println("Nominal")
     srand(rseed)
-    buip, burip, butip = updater(solip), updater(solrip), updater(soltip)
     @showprogress 1 "Simulating nominal value..." for j = 1:nreps
-        sv, sp = simulate(psim, simprob, solip, burip)
+        if simdynamics == :worst
+            sv, sp = simulate_worst(psim, simprob, solip, buip, solrip.alphas)
+        else
+            sv, sp = simulate(psim, simprob, solip, buip)
+        end
         simvals[i][j] = sv
         simps[i][j] = sp
     end
@@ -84,6 +85,11 @@ for i in 1:1
     srand(rseed)
     @showprogress 1 "Simulating robust value..." for j = 1:nreps
         sv, sp = simulate(psim, simprob, solrip, buip)
+        if simdynamics == :worst
+            sv, sp = simulate_worst(psim, simprob, solrip, burip, solrip.alphas)
+        else
+            sv, sp = simulate(psim, simprob, solrip, buip)
+        end
         simvals[i+1][j] = sv
         simps[i+1][j] = sp
     end
@@ -95,7 +101,11 @@ for i in 1:1
     println("OffNominal")
     srand(rseed)
     @showprogress 1 "Simulating off-nominal value..." for j = 1:nreps
-        sv, sp = simulate(psim, simprob, soltip, butip)
+        if simdynamics == :worst
+            sv, sp = simulate_worst(psim, simprob, soltip, butip, solrip.alphas)
+        else
+            sv, sp = simulate(psim, simprob, soltip, butip)
+        end
         simvals[i+2][j] = sv
         simps[i+2][j] = sp
     end
@@ -107,7 +117,7 @@ for i in 1:1
 end
 
 sname = "simple"
-sversion = "2.1"
+sversion = "2.2"
 ves = [policyvalue(solip, e1), policyvalue(solrip, e1),
         policyvalue(soltip, e1)]
 rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
@@ -161,7 +171,11 @@ observation(rip, a, sp)
 psample(observation(rip, a, sp)...)
 
 nsteps = 10
-psim = RolloutSimulator(solrip.alphas, max_steps = nsteps)
+psim = RolloutSimulator(max_steps = nsteps)
 simulate(psim, rip, solrip, buip)
+simulate_worst(psim, rip, solrip, buip, solrip.alphas)
 
 generate_sor_worst(rip, dbip.b, s, a, rng, solrip.alphas)
+
+initial_belief = initial_state_distribution(rip)
+rand(psim.rng, initial_belief)
