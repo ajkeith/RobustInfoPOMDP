@@ -1,0 +1,12 @@
+Belief,StdAction,RobustAction,OffNominalAction
+"[0.0, 1.0]",both,both,both
+"[0.1, 0.9]",both,both,both
+"[0.2, 0.8]",single,both,both
+"[0.3, 0.7]",single,both,both
+"[0.4, 0.6]",single,both,both
+"[0.5, 0.5]",single,both,both
+"[0.6, 0.4]",single,both,both
+"[0.7, 0.3]",single,both,both
+"[0.8, 0.2]",single,both,both
+"[0.9, 0.1]",both,both,both
+"[1.0, 0.0]",both,both,both
