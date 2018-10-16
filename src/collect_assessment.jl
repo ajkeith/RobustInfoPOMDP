@@ -12,7 +12,8 @@ rp = CyberRPOMDP()
 rip = CyberRIPOMDP()
 tip = CyberTestIPOMDP()
 
-# select belief points
+# select belief
+srand(7971023)
 s0 = fill(1/27, 27);
 s1 = zeros(27); s1[14] = 1;
 s2 = zeros(27); s2[1] = 1;
@@ -37,7 +38,7 @@ push!(bs, vcat(fill(0.0, nS - 1), 1.0))
 push!(bs, fill(1/nS, nS))
 
 # intialize solver
-solver = RPBVISolver(beliefpoints = bs, max_iterations = 10)
+solver = RPBVISolver(beliefpoints = bs, max_iterations = 100)
 
 # solve
 srand(5917293)
@@ -54,7 +55,7 @@ println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
 # ipomdp and ripomdp actions for some interesting states
 actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
         "1,1,1 - 1,1,3" ,"1,1,1 - 1,3,1", "1,1,1 - 3,1,1",
-        "1,1,1 - 1,2,3", "1,1,1 - 3,2,1" ]
+        "1,1,1 - 1,2,3", "1,1,1 - 3,2,1"]
 dbsip = [DiscreteBelief(ip, states(ip), s) for s in ss]
 asip = [action(solip, db) for db in dbsip]
 dbsrip = [DiscreteBelief(rip, states(rip), s) for s in ss]
@@ -67,8 +68,8 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 
 # sim values for nominal and robust solutions for off-nominal case
 ntest = 3
-nreps = 5
-nsteps = 10
+nreps = 40
+nsteps = 20
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
@@ -137,7 +138,7 @@ for i in 1:1
 end
 
 sname = "assessment"
-sversion = "2.0"
+sversion = "3.0"
 ves = [policyvalue(solip, e1), policyvalue(solrip, e1),
         policyvalue(soltip, e1)]
 rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
@@ -149,15 +150,29 @@ simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2],
 
 
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
+fnactions = string("exp_actions_", sname, "_", sversion, ".csv")
 fnresults = string("exp_results_", sname, "_", sversion, ".csv")
 fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
-fnactions = string("exp_actions_", sname, "_", sversion, ".csv")
+CSV.write(joinpath(path, fnactions), actiondata)
 CSV.write(joinpath(path, fnresults), rdata)
 CSV.write(joinpath(path, fnsim), simdata)
-CSV.write(joinpath(path, fnactions), actiondata)
 
+######################################################
 # Results
-# Version 2.0
+######################################################
+
+# Version 2.0 - Complete
+# sol iter = 10
+# sim steps = 10
+# sim reps = 5
+# problem type: robust
+# problem dynamics: worst case
+# solution policy: nominal, robust, off-nominal (respectively)
+
+# Version 3.0 - Complete
+# sol iter = 100
+# sim steps = 20
+# sim reps = 40
 # problem type: robust
 # problem dynamics: worst case
 # solution policy: nominal, robust, off-nominal (respectively)
