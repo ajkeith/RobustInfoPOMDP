@@ -19,7 +19,7 @@ for i = 1:length(ss)
 end
 
 # intialize solver
-solver = RPBVISolver(beliefpoints = bs, max_iterations = 500)
+solver = RPBVISolver(beliefpoints = bs, max_iterations = 50)
 
 # solve
 @time solip = RPBVI.solve(solver, ip);
@@ -47,8 +47,8 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 
 # sim values for nominal and robust solutions for off-nominal case
 ntest = 3
-nreps = 50
-nsteps = 100
+nreps = 40
+nsteps = 20
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
@@ -117,7 +117,7 @@ for i in 1:1
 end
 
 sname = "simple"
-sversion = "2.2"
+sversion = "4.0"
 ves = [policyvalue(solip, e1), policyvalue(solrip, e1),
         policyvalue(soltip, e1)]
 rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
@@ -157,8 +157,7 @@ dbip = initialize_belief(buip, initial_state_distribution(ip))
 dbrip = initialize_belief(burip, initial_state_distribution(rip))
 
 dbip = DiscreteBelief(ip, states(ip), [0.745, 0.255])
-dbrip = DiscreteBelief(rp, states(rip), [0.745, 0.255])
-a = :single
+
 o = :LL
 
 update(buip, dbip, a, o).b
@@ -172,10 +171,19 @@ psample(observation(rip, a, sp)...)
 
 nsteps = 10
 psim = RolloutSimulator(max_steps = nsteps)
-simulate(psim, rip, solrip, buip)
-simulate_worst(psim, rip, solrip, buip, solrip.alphas)
+simulate(psim, rip, solrip, burip)
+simulate_worst(psim, rip, solrip, burip, solrip.alphas)
 
-generate_sor_worst(rip, dbip.b, s, a, rng, solrip.alphas)
+dbrip = DiscreteBelief(rip, states(rip), [0.7, 0.3])
+a = :both
+generate_sor(rip, dbrip.b, s, a, rng)
+RPOMDPToolbox.generate_sor_worst(rip, dbrip.b, s, a, rng, solrip.alphas)
+sp = :left
+o = :L
+bp = update(burip, dbrip, a, :R).b
+reward(rip, bp, a)
+
+
 
 initial_belief = initial_state_distribution(rip)
 rand(psim.rng, initial_belief)

@@ -1,7 +1,5 @@
 # TO DO
 # eventually move this to a jupyter lab/notebook
-# rename PBVI to RPBVI
-# find out why rollout and solution value don't match
 # write pomdp txt file for baby, babyinfo, and tigerinfo (and others?)
 
 # load packages
@@ -112,6 +110,7 @@ function build(sname, robust, info, err, rewardfunc)
 end
 
 sname = "tiger"
+sversion = "3.0"
 dfexp = @from run in new_factors begin
             @where run.Short_Name == sname
             @select run
@@ -134,16 +133,30 @@ end
 
 
 # ntest = size(dfexp,1)
+bs = [[0.0, 1.0], [0.1, 0.9], [0.2, 0.8], [0.3, 0.7], [0.4, 0.6], [0.5, 0.5], [0.6, 0.4], [0.7, 0.3], [0.8, 0.2], [0.9, 0.1], [1.0, 0.0]]
 ntest = size(dfexp,1)
-solver = RPBVISolver()
-nsteps = 1_000
-nreps = 5
+nsteps = 15
+nreps = 20
+solver = RPBVISolver(beliefpoints = bs, max_iterations = nsteps)
 psim = RolloutSimulator(max_steps = nsteps)
+soldynamics = Array{AlphaVectorPolicy}(ntest) # sim dynamics policies
 policies = Array{AlphaVectorPolicy}(ntest) # solution policies
-simvals = Array{Array{Float64}}(ntest) # simulated values
+simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
+simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
 ves = Array{Float64}(ntest) # expected values
 vms = Array{Float64}(ntest) # mean of sim values
 vss = Array{Float64}(ntest) # std dev of sim values
+pms = Array{Float64}(ntest) # mean percent correct
+pss = Array{Float64}(ntest) # std percent correct
+
+# hard coded
+srand(74733)
+for i in collect(14:2:30)
+    soldynamics[i] = rpbvi.solve(solver, probs[i])
+end
+soldynamics[2:4] = soldynamics[[14,16,18]]
+soldynamics[6:8] = soldynamics[[20,22,24]]
+soldynamics[10:12] = soldynamics[[26,28,30]]
 
 # rollout generates state/obs/rewards based on the sim problem, and beliefs based on the solution policy
 srand(923475)
@@ -157,65 +170,33 @@ for i in 1:ntest
     ves[i] = value(sol, initial_belief(prob))
     bu = updater(sol)
     println("Simulation Type: ", new_factors[:Dynamics][i], " ", typeof(simprob))
-    simvals[i] = @showprogress 1 "Simulating value..." [simulate(psim, simprob, sol, bu) for j=1:nreps]
+    # simvals[i] = @showprogress 1 "Simulating value..." [simulate(psim, simprob, sol, bu) for j=1:nreps]
+    @showprogress 1 "Simulating value..." for j = 1:nreps
+        if typeof(simprob) <: Union{RPOMDP,RIPOMDP}
+            sv, sp = simulate_worst(psim, simprob, sol, bu, soldynamics[i].alphas)
+        else
+            sv, sp = simulate(psim, simprob, sol, bu)
+        end
+        simvals[i][j] = sv
+        simps[i][j] = sp
+    end
     vms[i] = mean(simvals[i])
     vss[i] = std(simvals[i])
+    pms[i] = mean(simps[i])
+    pss[i] = std(simps[i])
 end
 
 ids = collect(1:size(dfexp,1))
 dfexp[:ID] = ids
-rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss)
+rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss, CorrectMean = pms, CorrectStd = pss)
 df = join(dfexp, rdata, on = :ID)
 simdata = hcat(ids, hcat(simvals...)') |> DataFrame
+@show rdata
+
+
+
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
-fnresults = string("exp_results_", sname, ".csv")
-fnsim = string("exp_sim_values_", sname, ".csv")
+fnresults = string("exp_results_", sname, "_", sversion, ".csv")
+fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
 CSV.write(joinpath(path, fnresults), df)
 CSV.write(joinpath(path, fnsim), simdata)
-
-
-
-# using RPOMDPs, RPOMDPModels, RPOMDPToolbox
-# using RobustValueIteration
-# const rpbvi = RobustValueIteration
-# srand(93974)
-# prob = TigerInfoPOMDP()
-# probrip = TigerInfoRPOMDP()
-# solver = RPBVISolver()
-# sol = rpbvi.solve(solver, prob)
-# solrip = rpbvi.solve(solver, probrip)
-# bu = updater(sol)
-# burip = updater(solrip)
-#
-# psim = RolloutSimulator(max_steps = 10)
-# simulate(psim, prob, sol, bu)
-# simulate(psim, probrip, solrip, burip)
-#
-# hr = HistoryRecorder(max_steps = 10)
-# h = simulate(hr, prob, sol)
-# hrip = simulate(hr, probrip, solrip)
-#
-# [belief_hist(h)[i].b for i=1:10]
-#
-# # db = DiscreteBelief(prob, [0.5, 0.5])
-# # dbrip = DiscreteBelief(probrip, [0.5, 0.5])
-# # u = update(bu, db, :listenleft, :tigerleft)
-# # urip = update(burip, dbrip, :listenleft, :tigerleft)
-# #
-# # rng = MersenneTwister(2304)
-# # initialize_belief(updater(sol), initial_state_distribution(prob))
-# # sp, o, r, i = generate_sori(prob, [0.5, 0.5], :tigerleft, :listen, rng)
-# # sp, o, r = generate_sor(prob, [0.5, 0.5], :tigerleft, :listen, rng)
-#
-# using Plots
-# sp = sol
-# plot([0,1], sp.alphas, labels = sp.action_map, legend = :bottomright)
-
-# # test very small ambiguity sets
-# prob1 = BabyPOMDP()
-# prob = BabyRPOMDP(0.0001)
-# solver = RPBVISolver()
-# sol1 = rpbvi.solve(solver, prob1)
-# sol = rpbvi.solve(solver, prob)
-# v1 = value(sol1, initial_belief(prob1))
-# v = value(sol, initial_belief(prob))

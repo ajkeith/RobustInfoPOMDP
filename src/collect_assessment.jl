@@ -27,11 +27,12 @@ s6 = zeros(27); s6[1] = 0.5; s6[6] = 0.5;
 s7 = zeros(27); s7[1] = 0.5; s7[22] = 0.5;
 ss = [s0, s1, s2, s32, s42, s52, s33, s43, s53, s6, s7]
 nS = length(states(p))
-bs = Vector{Vector{Float64}}(length(ss)+5)
+nrand = 5
+bs = Vector{Vector{Float64}}(length(ss) + nrand)
 for i = 1:length(ss)
     bs[i] = ss[i]
 end
-for i = (length(ss)+1):(length(ss)+5)
+for i = (length(ss)+1):(length(ss) + nrand)
   bs[i] = psample(zeros(nS), ones(nS))
 end
 push!(bs, vcat(fill(0.0, nS - 1), 1.0))
@@ -145,7 +146,7 @@ rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
             SimMean = vms, SimStd = vss, SimMin = vmins,
             SimPercentMean = pms, SimPercentStd = pss)
 simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2],
-            OffNominal = simvals[1])
+            OffNominal = simvals[3])
 @show rdata
 
 
@@ -156,6 +157,15 @@ fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
 CSV.write(joinpath(path, fnactions), actiondata)
 CSV.write(joinpath(path, fnresults), rdata)
 CSV.write(joinpath(path, fnsim), simdata)
+
+# # Plots
+# # how to make each line a different sytle?
+# using StatPlots
+# @df simdata density([:NominalSim, :RobustSim, :OffNominal],
+#     labels = ["Standard Policy (Nominal)","Robust Policy","Standard Policy (Off-Nominal)"],
+#     xlim = [1.5, 2.5],
+#     style = [:solid, :solid, :dot],
+#     title = "Worst-Case Belief-Reward (n = 40)", xlab = "Empirical Total Discounted Reward", ylab = "Density")
 
 ######################################################
 # Results
@@ -176,3 +186,58 @@ CSV.write(joinpath(path, fnsim), simdata)
 # problem type: robust
 # problem dynamics: worst case
 # solution policy: nominal, robust, off-nominal (respectively)
+
+# Version 3.1 - Complete
+# sol iter = 17
+# sim steps = 17
+# sim reps = 15
+# problem type: robust
+# problem dynamics: worst case
+# solution policy: nominal, robust, off-nominal (respectively)
+# belief points: selected + nrand = 20
+
+# Versions 2.0 to 3.1 all use a bad generate_sor_worst...
+# need to fix generate_sor_worst and redo all of them
+
+
+
+# generate_sor_worst investigation
+# rip = CyberRIPOMDP()
+# simprob = rip
+# srand(7971023)
+# s0 = fill(1/27, 27);
+# s1 = zeros(27); s1[14] = 1;
+# s2 = zeros(27); s2[1] = 1;
+# s32 = zeros(27); s32[1] = 0.5; s32[2] = 0.5;
+# s42 = zeros(27); s42[1] = 0.5; s42[4] = 0.5;
+# s52 = zeros(27); s52[1] = 0.5; s52[10] = 0.5;
+# s33 = zeros(27); s33[1] = 0.5; s33[3] = 0.5;
+# s43 = zeros(27); s43[1] = 0.5; s43[7] = 0.5;
+# s53 = zeros(27); s53[1] = 0.5; s53[19] = 0.5;
+# s6 = zeros(27); s6[1] = 0.5; s6[6] = 0.5;
+# s7 = zeros(27); s7[1] = 0.5; s7[22] = 0.5;
+# ss = [s0, s1, s2, s32, s42, s52, s33, s43, s53, s6, s7]
+# nS = length(states(rip))
+# nrand = 1
+# bs = Vector{Vector{Float64}}(length(ss) + nrand)
+# for i = 1:length(ss)
+#     bs[i] = ss[i]
+# end
+# for i = (length(ss)+1):(length(ss) + nrand)
+#   bs[i] = psample(zeros(nS), ones(nS))
+# end
+# push!(bs, vcat(fill(0.0, nS - 1), 1.0))
+# push!(bs, fill(1/nS, nS))
+#
+# # intialize solver
+# solver = RPBVISolver(beliefpoints = bs, max_iterations = 10)
+# solrip = RobustValueIteration.solve(solver, rip)
+# burip = updater(solrip)
+# psim = RolloutSimulator(max_steps = 5)
+# rng = MersenneTwister(0)
+# b = s0
+# s = [2,2,2]
+# a = [1,1]
+# RPOMDPToolbox.generate_sor_worst(rip, b, s, a, rng, solrip.alphas)[1]
+# simulate_worst(psim, simprob, solrip, burip, solrip.alphas)
+#
