@@ -110,7 +110,7 @@ function build(sname, robust, info, err, rewardfunc)
 end
 
 sname = "tiger"
-sversion = "3.0"
+sversion = "3.1"
 dfexp = @from run in new_factors begin
             @where run.Short_Name == sname
             @select run
@@ -135,8 +135,8 @@ end
 # ntest = size(dfexp,1)
 bs = [[0.0, 1.0], [0.1, 0.9], [0.2, 0.8], [0.3, 0.7], [0.4, 0.6], [0.5, 0.5], [0.6, 0.4], [0.7, 0.3], [0.8, 0.2], [0.9, 0.1], [1.0, 0.0]]
 ntest = size(dfexp,1)
-nsteps = 15
-nreps = 20
+nsteps = 40
+nreps = 50
 solver = RPBVISolver(beliefpoints = bs, max_iterations = nsteps)
 psim = RolloutSimulator(max_steps = nsteps)
 soldynamics = Array{AlphaVectorPolicy}(ntest) # sim dynamics policies
@@ -200,3 +200,8 @@ fnresults = string("exp_results_", sname, "_", sversion, ".csv")
 fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
 CSV.write(joinpath(path, fnresults), df)
 CSV.write(joinpath(path, fnsim), simdata)
+
+using Plots; gr()
+k = 9
+plot([0,1], policies[k].alphas, xticks = 0:0.1:1,
+        lab = policies[k].action_map, legend = :bottomright)

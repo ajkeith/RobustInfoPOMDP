@@ -158,14 +158,6 @@ CSV.write(joinpath(path, fnactions), actiondata)
 CSV.write(joinpath(path, fnresults), rdata)
 CSV.write(joinpath(path, fnsim), simdata)
 
-# # Plots
-# # how to make each line a different sytle?
-# using StatPlots
-# @df simdata density([:NominalSim, :RobustSim, :OffNominal],
-#     labels = ["Standard Policy (Nominal)","Robust Policy","Standard Policy (Off-Nominal)"],
-#     xlim = [1.5, 2.5],
-#     style = [:solid, :solid, :dot],
-#     title = "Worst-Case Belief-Reward (n = 40)", xlab = "Empirical Total Discounted Reward", ylab = "Density")
 
 ######################################################
 # Results
@@ -200,8 +192,25 @@ CSV.write(joinpath(path, fnsim), simdata)
 # need to fix generate_sor_worst and redo all of them
 
 
+######################################################
+# Plots
+######################################################
+
+# # how to make each line a different sytle?
+# using StatPlots
+# @df simdata density([:NominalSim, :RobustSim, :OffNominal],
+#     labels = ["Standard Policy (Nominal)","Robust Policy","Standard Policy (Off-Nominal)"],
+#     xlim = [1.5, 2.5],
+#     style = [:solid, :solid, :dot],
+#     title = "Worst-Case Belief-Reward (n = 40)", xlab = "Empirical Total Discounted Reward", ylab = "Density")
+
+
+######################################################
+# Checks
+######################################################
 
 # generate_sor_worst investigation
+
 # rip = CyberRIPOMDP()
 # simprob = rip
 # srand(7971023)
