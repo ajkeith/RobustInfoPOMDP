@@ -2,7 +2,6 @@
 #
 # Correctness testing
 #
-# TODO: Add to actual test file (i.e. take constant values from POMDP results and use that to test against in the runtests of RobustValueIteration)
 ################################
 
 # Standard POMDP
@@ -38,6 +37,7 @@
 using RPOMDPs, RPOMDPModels, RPOMDPToolbox
 using RobustValueIteration
 using Plots; gr()
+const RPBVI = RobustValueIteration
 
 # PBVI POMDPs
 srand(8473272)
@@ -110,36 +110,84 @@ savefig(p_baby, path)
 # unc size = 0.001, 0.01, 0.05
 srand(8473272)
 nr = 5
-bs = [[[b, 1-b] for b in 0.0:0.05:1.0],
-        [[b, 1-b] for b in 0.0:0.05:1.0],
-        [[b, 1-b] for b in 0.0:0.05:1.0],
-        [[b, 1-b] for b in 0.0:0.05:1.0],
-        [[b, 1-b] for b in 0.0:0.05:1.0]]
-ambiguity = [0.001, 0.01, 0.05, 0.1, 0.2]
+bs = fill([[b, 1-b] for b in 0.0:0.05:1.0], nr)
+ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
 nreps = [50, 50, 50, 50, 50]
 maxstep = [100, 100, 100, 100, 100]
 policyvalue_tiger = Vector{Float64}(nr)
 simvals_tiger = Vector{Vector{Float64}}(nr)
+simps_tiger = Vector{Vector{Float64}}(nr)
+simvals_tiger_nom = Vector{Vector{Float64}}(nr)
+simps_tiger_nom = Vector{Vector{Float64}}(nr)
 m_tiger = Vector{Float64}(nr)
+m_nom_tiger = Vector{Float64}(nr)
 s_tiger = Vector{Float64}(nr)
 ci_tiger = Vector{Tuple{Float64, Float64}}(nr)
+ci_nom_tiger = Vector{Tuple{Float64, Float64}}(nr)
 plotvals_tiger = Vector{Vector{Float64}}(nr)
 
-# plot value
-for i = 1:nr
-    println("Starting loop $i...")
-    prob = TigerRPOMDP(0.95, ambiguity[i])
-    sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
-    println("Calculating policy...")
-    polr = RobustValueIteration.solve(sr, prob)
-    plotvals_tiger[i] = [maximum(dot(polr.alphas[j], [1-b, b]) for j = 1:length(polr.alphas))
-        for b = 0.0:0.01:1.0]
+# # plot value
+# for i = 1:nr
+#     println("Starting loop $i...")
+#     prob = TigerRPOMDP(0.95, ambiguity[i])
+#     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
+#     println("Calculating policy...")
+#     polr = RobustValueIteration.solve(sr, prob)
+#     plotvals_tiger[i] = [maximum(dot(polr.alphas[j], [1-b, b]) for j = 1:length(polr.alphas))
+#         for b = 0.0:0.01:1.0]
+# end
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    m, (m - hw, m + hw)
 end
 
+nreps[1] = 200
+uncsize = 0.3
+prob_nom = TigerPOMDP(0.95)
+solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
+pol_nom = RPBVI.solve(solver_nom, prob_nom)
+bu_nom = updater(pol_nom)
+prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+bu_r_nom = updater(pol_r_nom)
+simulator = RolloutSimulator(max_steps = maxstep[1])
+simvals_nn = Array{Float64}(nr, nreps[1],2)
+simvals_nr = Array{Float64}(nr, nreps[1],2)
+simvals_rn = Array{Float64}(nr, nreps[1],2)
+simvals_rr = Array{Float64}(nr, nreps[1],2)
+for j = 1:nreps[1]
+    (j % 10 == 0) && print("\rRep $j")
+    # nominal policy against nominal dynamics
+    simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
+        prob_nom, pol_nom, bu_nom)
+    # nominal policy against worst-case dynamics
+    simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_nom, bu_nom, pol_r_nom.alphas)
+    # robust policy against nominal dynamics
+    simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
+        prob_nom, pol_r_nom, bu_r_nom)
+    # robust policy against worst-case dynamics
+    simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_r_nom, bu_r_nom, pol_r_nom.alphas)
+end
+value(pol_nom, [0.5, 0.5])
+value(pol_r_nom, [0.5, 0.5])
+m_nn, ci_nn = meanci(simvals_nn[1,:,1])
+m_nr, ci_nr = meanci(simvals_nr[1,:,1])
+m_rn, ci_rn = meanci(simvals_rn[1,:,1])
+m_rr, ci_rr = meanci(simvals_rr[1,:,1])
+
+
 # sim value
-for i = 1:nr
-    println("Starting loop $i")
+srand(8473272)
+for i = 1:1
+    println("Loop $i")
     prob = TigerRPOMDP(0.95, ambiguity[i])
     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
     println("Calculating policy...")
@@ -148,17 +196,28 @@ for i = 1:nr
     policyvalue_tiger[i] = value(polr, [0.5,0.5])
     println("Simulating value...")
     simvals_tiger_temp = Vector{}(nreps[i])
+    simps_tiger_temp = Vector{}(nreps[i])
+    simvals_tiger_nom_temp = Vector{}(nreps[i])
+    simps_tiger_nom_temp = Vector{}(nreps[i])
+    simulator = RolloutSimulator(max_steps = maxstep[i])
     for j = 1:nreps[i]
-        print("\r j")
-        simvals_tiger_temp[j] = discounted_reward(simulate(HistoryRecorder(max_steps = maxstep[i]),
-        prob, polr, bur))
-        println("")
+        (j % 10 == 0) && print("\rRep $j")
+        simvals_tiger_temp[j], simps_tiger_temp[j]  = simulate_worst(simulator,
+            prob, polr, bur, polr.alphas)
+        simvals_tiger_nom_temp[j], simps_tiger_nom_temp[j]  = simulate_worst(simulator,
+            prob, pol_nom, bu_nom, polr.alphas)
     end
     simvals_tiger[i] = simvals_tiger_temp
+    simps_tiger[i] = simps_tiger_temp
+    simvals_tiger_nom[i] = simvals_tiger_nom_temp
+    simps_tiger_nom[i] = simps_tiger_nom_temp
     m_tiger[i] = mean(simvals_tiger[i])
+    m_nom_tiger[i] = mean(simvals_tiger_nom[i])
     s_tiger[i] = std(simvals_tiger[i])
     tstar = 1.962
     ci_tiger[i] = (m_tiger[i] - tstar * s_tiger[i] / sqrt(nreps[i]), m_tiger[i] + tstar * s_tiger[i] / sqrt(nreps[i]))
+    ci_nom_tiger[i] = (m_nom_tiger[i] - tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]),
+        m_nom_tiger[i] + tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]))
 end
 
 # reference values
@@ -243,3 +302,79 @@ plot!(x, plotvals_baby[5], color = :red, linealpha = 0.3, label = "RPBVI: 0.2")
 fn = "value_function_baby_robust.pdf"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(p_baby_robust, path)
+
+
+############################################
+#
+# Baby2RPOMDP Sim Value
+#
+############################################
+using RPOMDPs, RPOMDPModels, RPOMDPToolbox
+using RobustValueIteration
+using Plots; gr()
+const RPBVI = RobustValueIteration
+
+# RPBVI Robust POMDPs Baby2
+# unc size = 0.001, 0.01, 0.05
+srand(8473272)
+nr = 5
+bs = fill([[b, 1-b] for b in 0.0:0.01:1.0], nr)
+ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
+maxiter = [100, 100, 100, 100, 100]
+nreps = [50, 50, 50, 50, 50]
+maxstep = [100, 100, 100, 100, 100]
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    m, (m - hw, m + hw)
+end
+
+nreps[1] = 200
+uncsize = 0.1
+# prob_nom = Baby2POMDP(-5.0, -10.0, 0.9)
+prob_nom = TigerPOMDP(0.95)
+solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
+pol_nom = RPBVI.solve(solver_nom, prob_nom)
+bu_nom = updater(pol_nom)
+# prob_r_nom = SimpleBaby2RPOMDP(-5.0, -10.0, 0.9, uncsize)
+# prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+bu_r_nom = updater(pol_r_nom)
+simulator = RolloutSimulator(max_steps = maxstep[1])
+simvals_nn = Array{Float64}(nr, nreps[1],2)
+simvals_nr = Array{Float64}(nr, nreps[1],2)
+simvals_rn = Array{Float64}(nr, nreps[1],2)
+simvals_rr = Array{Float64}(nr, nreps[1],2)
+for j = 1:nreps[1]
+    (j % 10 == 0) && print("\rRep $j")
+    # nominal policy against nominal dynamics
+    simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
+        prob_nom, pol_nom, bu_nom)
+    # nominal policy against worst-case dynamics
+    simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_nom, bu_nom, pol_r_nom.alphas)
+    # robust policy against nominal dynamics
+    simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
+        prob_nom, pol_r_nom, bu_r_nom)
+    # robust policy against worst-case dynamics
+    simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_r_nom, bu_r_nom, pol_r_nom.alphas)
+end
+value(pol_nom, [0.0, 1.0])
+value(pol_r_nom, [0.0, 1.0])
+value(pol_nom, [0.5, 0.5])
+value(pol_r_nom, [0.5, 0.5])
+m_nn, ci_nn = meanci(simvals_nn[1,:,1])
+m_nr, ci_nr = meanci(simvals_nr[1,:,1])
+m_rn, ci_rn = meanci(simvals_rn[1,:,1])
+m_rr, ci_rr = meanci(simvals_rr[1,:,1])
+
+mp_nn, cip_nn = meanci(simvals_nn[1,:,2])
+mp_nr, cip_nr = meanci(simvals_nr[1,:,2])
+mp_rn, cip_rn = meanci(simvals_rn[1,:,2])
+mp_rr, cip_rr = meanci(simvals_rr[1,:,2])

@@ -10,19 +10,19 @@ const rpbvi = RobustValueIteration
 # setup results structures
 # solutions: holds policies and full sim results
 # data: holds solution values and copmutation time
-factors = DataFrame(ID = Int[], Problem = String[], Short_Name = String[], Solution = String[], Reward = String[], Information_Function = String[], Uncertainty_Size = Float64[], Dynamics = String[])
-probnames = ["Crying Baby", "Maze 1x3", "Maze 4x3", "Aircraft ID", "Part Painting", "Shuttle", "Tiger"]
-shortnames = ["baby", "maze1x3", "maze4x3", "aircraftid", "paint", "shuttle", "tiger"]
+factors = DataFrame(ID = Int[], Problem = String[], Short_Name = String[],
+    Solution = String[], Reward = String[], Information_Function = String[],
+    Uncertainty_Size = Float64[], Dynamics = String[])
+probnames = ["Crying Baby", "Tiger", "SimpleTiger"]
+shortnames = ["baby", "tiger", "simpletiger"]
 soltypes = ["Standard", "Robust"]
 rewardtypes = ["Standard", "Information"]
 infofuncs = ["Simple", "Approximate Entropy"]
-uncsizes = [0.025, 0.1, 0.3]
+uncsizes = [0.001, 0.01, 0.1, 0.2]
 dyntypes = ["Nominal", "Ambiguous"]
 respsols = ["Policy", "Simulation Values"]
-respdata = ["Solution Value", "Simulation Value (Mean)", "Simulation Value (Std Dev)", "Computation Time"]
 headerfacts = ["ID","Problem", "Short Name", "Solution", "Reward", "Information Function", "Uncertainty Size", "Dynamics"]
 headersols = vcat(factors, respsols)
-headerdata = vcat(factors, respdata)
 
 ind = 0
 for pname in probnames, sol in soltypes, r in rewardtypes, i in infofuncs, u in uncsizes, d in dyntypes
@@ -101,18 +101,33 @@ function build(sname, robust, info, err, rewardfunc)
         end
     elseif sname == "tiger"
         if robust == "Robust"
-            prob = info == "Standard" ? TigerRPOMDP(err) : TigerInfoRPOMDP(err, r)
+            prob = info == "Standard" ? TigerRPOMDP(0.95, err) : TigerInfoRPOMDP(0.95, err, r)
         else
-            prob = info == "Standard" ? TigerPOMDP() : TigerInfoPOMDP(r)
+            prob = info == "Standard" ? TigerPOMDP(0.95) : TigerInfoPOMDP(0.95, r)
+        end
+    elseif sname == "simpletiger"
+        if robust == "Robust"
+            prob = info == "Standard" ? SimpleTigerRPOMDP(0.95, err) : TigerInfoRPOMDP(0.95, err, r)
+        else
+            prob = info == "Standard" ? TigerPOMDP(0.95) : TigerInfoPOMDP(0.95, r)
         end
     end
     prob
 end
 
-sname = "tiger"
-sversion = "3.1"
+sname = "baby"
+sversion = "4.0"
+
+# all sname runs
+# dfexp = @from run in new_factors begin
+#             @where run.Short_Name == sname
+#             @select run
+#             @collect DataFrame
+# end
+
+# selected sname runs
 dfexp = @from run in new_factors begin
-            @where run.Short_Name == sname
+            @where run.Short_Name == sname && run.Reward == "Standard"
             @select run
             @collect DataFrame
 end
@@ -120,6 +135,7 @@ end
 nrows = size(dfexp,1)
 probs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(nrows)
 simprobs = Array{Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}}(nrows)
+# problems and sim problems
 for i = 1:nrows
     sname = dfexp[:Short_Name][i]
     robust = dfexp[:Solution][i]
@@ -131,46 +147,69 @@ for i = 1:nrows
     simprobs[i] = build(sname, simrobust, info, err, rewardfunc)
 end
 
-
-# ntest = size(dfexp,1)
-bs = [[0.0, 1.0], [0.1, 0.9], [0.2, 0.8], [0.3, 0.7], [0.4, 0.6], [0.5, 0.5], [0.6, 0.4], [0.7, 0.3], [0.8, 0.2], [0.9, 0.1], [1.0, 0.0]]
-ntest = size(dfexp,1)
-nsteps = 40
-nreps = 50
 solver = RPBVISolver(beliefpoints = bs, max_iterations = nsteps)
-psim = RolloutSimulator(max_steps = nsteps)
-soldynamics = Array{AlphaVectorPolicy}(ntest) # sim dynamics policies
-policies = Array{AlphaVectorPolicy}(ntest) # solution policies
-simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
-simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
-ves = Array{Float64}(ntest) # expected values
-vms = Array{Float64}(ntest) # mean of sim values
-vss = Array{Float64}(ntest) # std dev of sim values
-pms = Array{Float64}(ntest) # mean percent correct
-pss = Array{Float64}(ntest) # std percent correct
+policies = Array{AlphaVectorPolicy}(nrows)
+soldynamics = Array{AlphaVectorPolicy}(nrows) # worst-case dynamics
+policies[1] = RPBVI.solve(solver, probs[1])
+(dfexp[:Dynamics][1] == "Ambiguous") && (soldynamics[1] = RPBVI.solve(solver, simprobs[1]))
 
-# hard coded
-srand(74733)
-for i in collect(14:2:30)
-    soldynamics[i] = rpbvi.solve(solver, probs[i])
+for i = 2:nrows
+    println("\rPolicy $i")
+    if probs[i] == probs[i-1]
+        policies[i] = policies[i-1]
+    else
+        policies[i] = RPBVI.solve(solver, probs[i])
+    end
 end
-soldynamics[2:4] = soldynamics[[14,16,18]]
-soldynamics[6:8] = soldynamics[[20,22,24]]
-soldynamics[10:12] = soldynamics[[26,28,30]]
+
+function findpolicy(simprob::Union{POMDP,IPOMDP,RPOMDP,RIPOMDP}, probs, policies)
+    ind = 0
+    counter = 1
+    while ind < 1
+        (simprob == probs[counter]) && (ind = counter)
+        counter += 1
+    end
+    policies[ind]
+end
+
+for i = 1:nrows
+    soldynamics[i] = findpolicy(simprobs[i], probs, policies)
+end
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    (m - hw, m + hw)
+end
+
+bs = [[b, 1-b] for b in 0.0:0.05:1.0]
+nsteps = 100
+nreps = 100
+psim = RolloutSimulator(max_steps = nsteps)
+simvals = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated values
+simps = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated percent correct
+ves = Array{Float64}(nrows) # expected values
+vms = Array{Float64}(nrows) # mean of sim values
+vss = Array{Float64}(nrows) # std dev of sim values
+vci = Array{Tuple{Float64,Float64}}(nrows) # 95% ci of mean of sim values
+pms = Array{Float64}(nrows) # mean percent correct
+pss = Array{Float64}(nrows) # std percent correct
+pci = Array{Tuple{Float64,Float64}}(nrows) # 95% ci of mean of sim percent correct
 
 # rollout generates state/obs/rewards based on the sim problem, and beliefs based on the solution policy
 srand(923475)
-for i in 1:ntest
+for i in 1:nrows
     println("Run $i")
     println("Solution Type: ", new_factors[:Solution][i], " Dynamics, ", new_factors[:Reward][i], " Reward")
     prob = probs[i]
     simprob = simprobs[i]
-    sol = rpbvi.solve(solver, prob)
-    policies[i] = sol
+    sol = policies[i]
     ves[i] = value(sol, initial_belief(prob))
     bu = updater(sol)
     println("Simulation Type: ", new_factors[:Dynamics][i], " ", typeof(simprob))
-    # simvals[i] = @showprogress 1 "Simulating value..." [simulate(psim, simprob, sol, bu) for j=1:nreps]
     @showprogress 1 "Simulating value..." for j = 1:nreps
         if typeof(simprob) <: Union{RPOMDP,RIPOMDP}
             sv, sp = simulate_worst(psim, simprob, sol, bu, soldynamics[i].alphas)
@@ -182,14 +221,25 @@ for i in 1:ntest
     end
     vms[i] = mean(simvals[i])
     vss[i] = std(simvals[i])
+    vci[i] = meanci(simvals[i])
     pms[i] = mean(simps[i])
     pss[i] = std(simps[i])
+    pci[i] = meanci(simps[i])
 end
 
 ids = collect(1:size(dfexp,1))
 dfexp[:ID] = ids
-rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss, CorrectMean = pms, CorrectStd = pss)
-df = join(dfexp, rdata, on = :ID)
+rdata = DataFrame(ID = ids, ExpectedValue = ves, SimMean = vms, SimStd = vss,
+    SimCI = vci, CorrectMean = pms, CorrectStd = pss, CorrectCI = pci)
+ndec = 3
+rdata_round = DataFrame(ID = ids, ExpectedValue = round.(ves, ndec),
+    SimMean = round.(vms, ndec),
+    SimStd = round.(vss, ndec),
+    SimCI = [round.(vci[i], ndec) for i in 1:length(vci)],
+    CorrectMean = round.(pms, ndec),
+    CorrectStd = round.(pss, ndec),
+    CorrectCI = [round.(pci[i], ndec) for i in 1:length(pci)])
+df = join(dfexp, rdata_round, on = :ID)
 simdata = hcat(ids, hcat(simvals...)') |> DataFrame
 @show rdata
 
@@ -202,6 +252,20 @@ CSV.write(joinpath(path, fnresults), df)
 CSV.write(joinpath(path, fnsim), simdata)
 
 using Plots; gr()
-k = 9
-plot([0,1], policies[k].alphas, xticks = 0:0.1:1,
-        lab = policies[k].action_map, legend = :bottomright)
+rnum = 1
+valfunc1 = [maximum(dot(policies[rnum].alphas[i], [b, 1-b]) for i = 1:length(policies[rnum].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc13 = [maximum(dot(policies[13].alphas[i], [b, 1-b]) for i = 1:length(policies[13].alphas))
+        for b = 0.0:0.01:1.0]
+x = collect(0:0.01:1.0)
+vplot = plot(x, valfunc1, xticks = 0:0.1:1, label = "Nominal",
+        # title = "Tiger POMDP Value Function",
+        xlab = "Belief, P(State = Tiger Left)",
+        ylab = "Expected Total Discounted Reward",
+        legend = :bottomleft,
+        line = :dash,
+        linealpha = 0.9)
+plot!(x, valfunc13, color = :red, linealpha = 0.8, label = "Robust: 0.2")
+fn = string("value_function_", sname, "_", sversion, ".pdf")
+path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
+savefig(vplot, path)
