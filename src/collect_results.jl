@@ -1,7 +1,3 @@
-# TO DO
-# eventually move this to a jupyter lab/notebook
-# write pomdp txt file for baby, babyinfo, and tigerinfo (and others?)
-
 # load packages
 using RPOMDPs, RPOMDPModels, RPOMDPToolbox, RobustValueIteration
 using DataFrames, Query, CSV, ProgressMeter
@@ -13,15 +9,16 @@ const rpbvi = RobustValueIteration
 factors = DataFrame(ID = Int[], Problem = String[], Short_Name = String[],
     Solution = String[], Reward = String[], Information_Function = String[],
     Uncertainty_Size = Float64[], Dynamics = String[])
-probnames = ["Crying Baby", "Tiger", "SimpleTiger"]
-shortnames = ["baby", "tiger", "simpletiger"]
+probnames = ["Crying Baby", "Tiger", "SimpleBaby", "SimpleTiger"]
+shortnames = ["baby", "tiger", "simplebaby", "simpletiger"]
 soltypes = ["Standard", "Robust"]
 rewardtypes = ["Standard", "Information"]
 infofuncs = ["Simple", "Approximate Entropy"]
 uncsizes = [0.001, 0.01, 0.1, 0.2]
 dyntypes = ["Nominal", "Ambiguous"]
 respsols = ["Policy", "Simulation Values"]
-headerfacts = ["ID","Problem", "Short Name", "Solution", "Reward", "Information Function", "Uncertainty Size", "Dynamics"]
+headerfacts = ["ID","Problem", "Short Name", "Solution", "Reward",
+    "Information Function", "Uncertainty Size", "Dynamics"]
 headersols = vcat(factors, respsols)
 
 ind = 0
@@ -105,6 +102,12 @@ function build(sname, robust, info, err, rewardfunc)
         else
             prob = info == "Standard" ? TigerPOMDP(0.95) : TigerInfoPOMDP(0.95, r)
         end
+    elseif sname == "simplebaby"
+        if robust == "Robust"
+            prob = info == "Standard" ? SimpleBaby2RPOMDP(-15.0, -10.0, 0.9, err) : BabyInfoRPOMDP(err, r)
+        else
+            prob = info == "Standard" ? Baby2POMDP(-15.0, -10.0, 0.9) : BabyInfoPOMDP(r)
+        end
     elseif sname == "simpletiger"
         if robust == "Robust"
             prob = info == "Standard" ? SimpleTigerRPOMDP(0.95, err) : TigerInfoRPOMDP(0.95, err, r)
@@ -115,8 +118,11 @@ function build(sname, robust, info, err, rewardfunc)
     prob
 end
 
-sname = "baby"
-sversion = "4.0"
+##################################################
+
+sname = "simplebaby"
+sversion = "5.1"
+nreps = 500
 
 # all sname runs
 # dfexp = @from run in new_factors begin
@@ -125,7 +131,7 @@ sversion = "4.0"
 #             @collect DataFrame
 # end
 
-# selected sname runs
+# non-info sname runs
 dfexp = @from run in new_factors begin
             @where run.Short_Name == sname && run.Reward == "Standard"
             @select run
@@ -147,6 +153,8 @@ for i = 1:nrows
     simprobs[i] = build(sname, simrobust, info, err, rewardfunc)
 end
 
+bs = [[b, 1-b] for b in 0.0:0.05:1.0]
+nsteps = 100
 solver = RPBVISolver(beliefpoints = bs, max_iterations = nsteps)
 policies = Array{AlphaVectorPolicy}(nrows)
 soldynamics = Array{AlphaVectorPolicy}(nrows) # worst-case dynamics
@@ -185,9 +193,6 @@ function meanci(data::Vector{Float64})
     (m - hw, m + hw)
 end
 
-bs = [[b, 1-b] for b in 0.0:0.05:1.0]
-nsteps = 100
-nreps = 100
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated percent correct
@@ -261,8 +266,10 @@ x = collect(0:0.01:1.0)
 vplot = plot(x, valfunc1, xticks = 0:0.1:1, label = "Nominal",
         # title = "Tiger POMDP Value Function",
         xlab = "Belief, P(State = Tiger Left)",
+        # xlab = "Belief, P(State = Hungry)",
         ylab = "Expected Total Discounted Reward",
         legend = :bottomleft,
+        # legend = :topright,
         line = :dash,
         linealpha = 0.9)
 plot!(x, valfunc13, color = :red, linealpha = 0.8, label = "Robust: 0.2")

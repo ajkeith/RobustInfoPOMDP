@@ -113,7 +113,7 @@ nr = 5
 bs = fill([[b, 1-b] for b in 0.0:0.05:1.0], nr)
 ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
-nreps = [50, 50, 50, 50, 50]
+nreps = [1, 1, 500, 1, 1]
 maxstep = [100, 100, 100, 100, 100]
 policyvalue_tiger = Vector{Float64}(nr)
 simvals_tiger = Vector{Vector{Float64}}(nr)
@@ -147,8 +147,8 @@ function meanci(data::Vector{Float64})
     m, (m - hw, m + hw)
 end
 
-nreps[1] = 200
-uncsize = 0.3
+nreps[1] = 500
+uncsize = 0.05
 prob_nom = TigerPOMDP(0.95)
 solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
 pol_nom = RPBVI.solve(solver_nom, prob_nom)
@@ -258,7 +258,7 @@ bs = [[[b, 1-b] for b in 0.0:0.05:1.0],
         [[b, 1-b] for b in 0.0:0.05:1.0]]
 ambiguity = [0.001, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
-nreps = [50, 50, 50, 50, 50]
+nreps = [1, 1, 500, 1, 1]
 maxstep = [100, 100, 100, 100, 100]
 policy_baby = Vector{}(nr)
 policyvalue_baby = Vector{}(nr)
@@ -271,7 +271,7 @@ plotvals_baby = Vector{}(nr)
 # plot value
 for i = 1:nr
     println("Starting loop $i...")
-    prob = BabyRPOMDP(-5.0, -10.0, 0.9, ambiguity[i])
+    prob = Baby2RPOMDP(-5.0, -10.0, 0.9, ambiguity[i])
     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
     println("Calculating policy...")
     policy_baby[i] = RobustValueIteration.solve(sr, prob)
@@ -291,9 +291,10 @@ p_baby_robust = plot(x, valsref_baby, xticks = 0:0.1:1, label = "SARSOP",
         xlab = "Belief, P(State = Hungry)",
         ylab = "Expected Total Discounted Reward",
         legend = :bottomright,
+        color = :blue,
         line = :dash,
-        linealpha = 0.8)
-plot!(x, plotvals0_baby, color = :red, linealpha = 0.8, label = "PBVI")
+        linealpha = 1.0)
+# plot!(x, plotvals0_baby, color = :red, linealpha = 0.8, label = "PBVI")
 plot!(x, plotvals_baby[1], color = :red, linealpha = 0.7, label = "RPBVI: 0.001")
 plot!(x, plotvals_baby[2], color = :red, linealpha = 0.6, label = "RPBVI: 0.01")
 plot!(x, plotvals_baby[3], color = :red, linealpha = 0.5, label = "RPBVI: 0.05")
@@ -318,7 +319,7 @@ const RPBVI = RobustValueIteration
 # unc size = 0.001, 0.01, 0.05
 srand(8473272)
 nr = 5
-bs = fill([[b, 1-b] for b in 0.0:0.01:1.0], nr)
+bs = fill([[b, 1-b] for b in 0.0:0.05:1.0], nr)
 ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
 nreps = [50, 50, 50, 50, 50]
@@ -334,16 +335,19 @@ function meanci(data::Vector{Float64})
 end
 
 nreps[1] = 200
-uncsize = 0.1
-# prob_nom = Baby2POMDP(-5.0, -10.0, 0.9)
-prob_nom = TigerPOMDP(0.95)
+uncsize = 0.4
+rfeed = -15.0
+prob_nom = Baby2POMDP(rfeed, -10.0, 0.9)
+# prob_nom = TigerPOMDP(0.95)
 solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
 pol_nom = RPBVI.solve(solver_nom, prob_nom)
 bu_nom = updater(pol_nom)
-# prob_r_nom = SimpleBaby2RPOMDP(-5.0, -10.0, 0.9, uncsize)
-# prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
-prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+prob_r_nom = SimpleBaby2RPOMDP(rfeed, -10.0, 0.9, uncsize)
 pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+@show pol_nom.action_map
+@show pol_r_nom.action_map
+# prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+# prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
 bu_r_nom = updater(pol_r_nom)
 simulator = RolloutSimulator(max_steps = maxstep[1])
 simvals_nn = Array{Float64}(nr, nreps[1],2)
