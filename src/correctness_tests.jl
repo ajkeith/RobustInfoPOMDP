@@ -320,7 +320,7 @@ const RPBVI = RobustValueIteration
 srand(8473272)
 nr = 5
 bs = fill([[b, 1-b] for b in 0.0:0.05:1.0], nr)
-ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
+ambiguity = [0.001, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
 nreps = [50, 50, 50, 50, 50]
 maxstep = [100, 100, 100, 100, 100]
@@ -373,6 +373,157 @@ value(pol_nom, [0.0, 1.0])
 value(pol_r_nom, [0.0, 1.0])
 value(pol_nom, [0.5, 0.5])
 value(pol_r_nom, [0.5, 0.5])
+m_nn, ci_nn = meanci(simvals_nn[1,:,1])
+m_nr, ci_nr = meanci(simvals_nr[1,:,1])
+m_rn, ci_rn = meanci(simvals_rn[1,:,1])
+m_rr, ci_rr = meanci(simvals_rr[1,:,1])
+
+mp_nn, cip_nn = meanci(simvals_nn[1,:,2])
+mp_nr, cip_nr = meanci(simvals_nr[1,:,2])
+mp_rn, cip_rn = meanci(simvals_rn[1,:,2])
+mp_rr, cip_rr = meanci(simvals_rr[1,:,2])
+
+
+
+############################################
+#
+# RockDiagnosis Sim Value
+#
+############################################
+using RPOMDPs, RPOMDPModels, RPOMDPToolbox
+using RobustValueIteration
+using SimpleProbabilitySets
+# using Plots; gr()
+const RPBVI = RobustValueIteration
+
+# RPBVI Robust POMDPs Baby2
+# unc size = 0.001, 0.01, 0.05
+srand(8473272)
+nr = 5
+nb = 20
+bs1 = [vcat(psample(zeros(2), ones(2)),zeros(2)) for i = 1:nb]
+bs2 = [vcat(zeros(2), psample(zeros(2), ones(2))) for i = 1:nb]
+bs0 = vcat(bs1, bs2)
+bs = fill(bs0, nr)
+ambiguity = [0.001, 0.01, 0.1, 0.2, 0.4]
+maxiter = [200, 200, 200, 200, 200]
+nreps = [100, 100, 100, 100, 100]
+maxstep = [200, 200, 200, 200, 200]
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    m, (m - hw, m + hw)
+end
+
+uncsize = 0.4
+prob_nom = RockIPOMDP()
+solver_nom = RPBVISolver(beliefpoints = bs[1],
+    max_iterations = maxiter[1])
+pol_nom = RPBVI.solve(solver_nom, prob_nom)
+bu_nom = updater(pol_nom)
+binit_nom = initial_belief_distribution(prob_nom)
+prob_r_nom = RockRIPOMDP(uncsize)
+pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+@show pol_nom.action_map
+@show pol_r_nom.action_map
+bu_r_nom = updater(pol_r_nom)
+binit_r_nom = initial_belief_distribution(prob_r_nom)
+simulator = RolloutSimulator(max_steps = maxstep[1])
+s_nom = rand(simulator.rng, initial_state_distribution(prob_nom))
+s_r_nom = rand(simulator.rng, initial_state_distribution(prob_r_nom))
+
+# #######
+# #check belief updater
+# b = initialize_belief(bu_r_nom, binit_r_nom)
+# a = :check
+# o = :bad
+# umin, pmin = RPBVI.minutil(prob_r_nom, b.b, a, bu_r_nom.alphas)
+# @show pmin[:,:,3]
+# bp = update(bu_r_nom, b, a, o)
+# @show bp.b
+#
+# ################################
+# # compare robust and nominal belief updates in the worst-case
+# blen = 200
+# rseed = 8
+# bn = initialize_belief(bu_nom, binit_nom)
+# alphavecs = pol_r_nom.alphas
+# rng = MersenneTwister(rseed)
+# srand(8)
+# bbhist = Array{Any}(blen)
+# bhist = Array{Any}(blen)
+# bhist[1] = bn
+# bbhist[1] = bn.b
+# for i = 2:blen
+#     b = bhist[i-1]
+#     a = :check
+#     s = 20
+#     _, o, _ = RPOMDPToolbox.generate_sor_worst(prob_r_nom, b.b, s, a, rng, alphavecs)
+#     bp = update(bu_nom, b, a, o)
+#     bhist[i] = bp
+#     bbhist[i] = bp.b
+# end
+# hn = [bbhist[i][1] for i=1:blen]
+#
+# br = initialize_belief(bu_r_nom, binit_r_nom)
+# alphavecs = pol_r_nom.alphas
+# rng = MersenneTwister(rseed)
+# bbhistr = Array{Any}(blen)
+# bhistr = Array{Any}(blen)
+# bhistr[1] = br
+# bbhistr[1] = br.b
+# for i = 2:blen
+#     b = bhistr[i-1]
+#     a = :check
+#     s = 20
+#     _, o, _ = RPOMDPToolbox.generate_sor_worst(prob_r_nom, b.b, s, a, rng, alphavecs)
+#     bp = update(bu_r_nom, b, a, o)
+#     bhistr[i] = bp
+#     bbhistr[i] = bp.b
+# end
+# hr = [bbhistr[i][1] for i = 1:blen]
+#
+# # using Plots; gr()
+# plot([hn, hr])
+
+# ####################################
+# # check simulators
+# simulate(simulator, prob_nom, pol_nom, bu_nom,
+#     binit_nom, s_nom) #nn
+# simulate(simulator, prob_r_nom, pol_nom, bu_nom,
+#     binit_r_nom, s_r_nom) #nr
+# simulate(simulator, prob_nom, pol_r_nom, bu_r_nom,
+#     binit_nom, s_nom) #rn
+# simulate_worst(simulator, prob_r_nom, pol_r_nom, bu_r_nom,
+#     binit_r_nom, s_r_nom, pol_r_nom.alphas) #rr
+
+#########################################
+# robust vs nom (exp and worst case)
+simvals_nn = Array{Float64}(nr, nreps[1],2)
+simvals_nr = Array{Float64}(nr, nreps[1],2)
+simvals_rn = Array{Float64}(nr, nreps[1],2)
+simvals_rr = Array{Float64}(nr, nreps[1],2)
+for j = 1:nreps[1]
+    (j % 10 == 0) && print("\rRep $j")
+    # nominal policy against nominal dynamics
+    simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
+        prob_nom, pol_nom, bu_nom, binit_nom, s_nom)
+    # nominal policy against worst-case dynamics
+    simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_nom, bu_nom, binit_nom, s_nom, pol_r_nom.alphas)
+    # robust policy against nominal dynamics
+    simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
+        prob_nom, pol_r_nom, bu_r_nom, binit_nom, s_nom)
+    # robust policy against worst-case dynamics
+    simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
+        prob_r_nom, pol_r_nom, bu_r_nom, binit_r_nom, s_r_nom, pol_r_nom.alphas)
+end
+value(pol_nom, [0.5, 0.5, 0.0, 0.0])
+value(pol_r_nom, [0.5, 0.5, 0.0, 0.0])
 m_nn, ci_nn = meanci(simvals_nn[1,:,1])
 m_nr, ci_nr = meanci(simvals_nr[1,:,1])
 m_rn, ci_rn = meanci(simvals_rn[1,:,1])
