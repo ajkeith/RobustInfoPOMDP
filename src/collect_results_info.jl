@@ -133,7 +133,7 @@ end
 ##################################################
 
 sname = "rock"
-sversion = "7.1"
+sversion = "8.0"
 nreps = 100
 
 # info sname runs

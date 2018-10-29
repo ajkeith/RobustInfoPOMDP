@@ -413,7 +413,7 @@ bs0 = vcat(bs1, bs2, bs3)
 bs = fill(bs0, nr)
 ambiguity = [0.001, 0.1, 0.2, 0.3, 0.4]
 maxiter = fill(150, nr)
-nreps = fill(50, nr)
+nreps = fill(150, nr)
 maxstep = fill(150, nr)
 
 function meanci(data::Vector{Float64})
@@ -445,7 +445,7 @@ ralphas2 = [[1.0, vhi, vhi, vhi],
 
 ra = ralphas2
 disc = 0.95
-uncsize = 0.4
+uncsize = 0.2
 prob_nom = RockIPOMDP(ra, disc)
 solver_nom = RPBVISolver(beliefpoints = bs[1],
     max_iterations = maxiter[1])
