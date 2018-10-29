@@ -39,19 +39,17 @@ push!(bs, vcat(fill(0.0, nS - 1), 1.0))
 push!(bs, fill(1/nS, nS))
 
 # intialize solver
-solver = RPBVISolver(beliefpoints = bs, max_iterations = 100)
+solver = RPBVISolver(beliefpoints = bs, max_iterations = 20)
 
 # solve
 srand(5917293)
-@time solip = RPBVI.solve(solver, ip); # 10 sec at 10 iter
-@time solrip = RPBVI.solve(solver, rip); # 718 sec at 10 iter
-@time soltip = RPBVI.solve(solver, tip); # 10 sec at 10 iter
+@time solip = RPBVI.solve(solver, ip);
+@time solrip = RPBVI.solve(solver, rip);
 
 # calculate values
 e1 = zeros(27); e1[1] = 1
 println("Standard Value: ", policyvalue(solip, e1))
 println("Robust Value: ", policyvalue(solrip, e1))
-println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
 
 # ipomdp and ripomdp actions for some interesting states
 actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
@@ -68,7 +66,7 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 @show actiondata
 
 # sim values for nominal and robust solutions for off-nominal case
-ntest = 3
+ntest = 2
 nreps = 40
 nsteps = 20
 psim = RolloutSimulator(max_steps = nsteps)
@@ -86,12 +84,14 @@ simprob = rip
 simdynamics = :worst
 for i in 1:1
     # println("Run ", ceil(Int, i / 2))
-    buip, burip, butip = updater(solip), updater(solrip), updater(soltip)
+    buip, burip = updater(solip), updater(solrip)
     println("Nominal")
     srand(rseed)
+    binitip = initial_belief_distribution(ip)
+    sinitrip = rand(psim.rng, initial_state_distribution(simprob))
     @showprogress 1 "Simulating nominal value..." for j = 1:nreps
         if simdynamics == :worst
-            sv, sp = simulate_worst(psim, simprob, solip, buip, solrip.alphas)
+            sv, sp = simulate_worst(psim, simprob, solip, buip, binitip, sinitrip, solrip.alphas)
         else
             sv, sp = simulate(psim, simprob, solip, buip)
         end
@@ -105,10 +105,11 @@ for i in 1:1
     pss[i] = std(simps[i])
     println("Robust")
     srand(rseed)
+    binitrip = initial_belief_distribution(rip)
     @showprogress 1 "Simulating robust value..." for j = 1:nreps
         sv, sp = simulate(psim, simprob, solrip, buip)
         if simdynamics == :worst
-            sv, sp = simulate_worst(psim, simprob, solrip, burip, solrip.alphas)
+            sv, sp = simulate_worst(psim, simprob, solrip, burip, binitrip, sinitrip, solrip.alphas)
         else
             sv, sp = simulate(psim, simprob, solrip, buip)
         end
@@ -120,33 +121,15 @@ for i in 1:1
     vmins[i+1] = minimum(simvals[i+1])
     pms[i+1] = mean(simps[i+1])
     pss[i+1] = std(simps[i+1])
-    println("OffNominal")
-    srand(rseed)
-    @showprogress 1 "Simulating off-nominal value..." for j = 1:nreps
-        if simdynamics == :worst
-            sv, sp = simulate_worst(psim, simprob, soltip, butip, solrip.alphas)
-        else
-            sv, sp = simulate(psim, simprob, soltip, butip)
-        end
-        simvals[i+2][j] = sv
-        simps[i+2][j] = sp
-    end
-    vms[i+2] = mean(simvals[i+2])
-    vss[i+2] = std(simvals[i+2])
-    vmins[i+2] = minimum(simvals[i+2])
-    pms[i+2] = mean(simps[i+2])
-    pss[i+2] = std(simps[i+2])
 end
 
 sname = "assessment"
-sversion = "3.0"
-ves = [policyvalue(solip, e1), policyvalue(solrip, e1),
-        policyvalue(soltip, e1)]
-rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
+sversion = "4.0"
+ves = [policyvalue(solip, e1), policyvalue(solrip, e1)]
+rdata = DataFrame(ID = ["Nominal", "Robust"], ExpValue = ves,
             SimMean = vms, SimStd = vss, SimMin = vmins,
             SimPercentMean = pms, SimPercentStd = pss)
-simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2],
-            OffNominal = simvals[3])
+simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2])
 @show rdata
 
 
