@@ -400,15 +400,21 @@ const RPBVI = RobustValueIteration
 # unc size = 0.001, 0.01, 0.05
 srand(8473272)
 nr = 5
-nb = 20
-bs1 = [vcat(psample(zeros(2), ones(2)),zeros(2)) for i = 1:nb]
-bs2 = [vcat(zeros(2), psample(zeros(2), ones(2))) for i = 1:nb]
-bs0 = vcat(bs1, bs2)
+# nb = 30
+# bs1 = [vcat(psample(zeros(2), ones(2)),zeros(2)) for i = 1:nb]
+# bs2 = [vcat(zeros(2), psample(zeros(2), ones(2))) for i = 1:nb]
+# bs0 = vcat(bs1, bs2)
+bdelt = 0.05
+nb2 = 10
+bs1 = [vcat([b, 1-b],zeros(2)) for b in 0.0:bdelt:1.0]
+bs2 = [vcat(zeros(2), [b, 1-b]) for b in 0.0:bdelt:1.0]
+bs3 = [psample(zeros(4), ones(4)) for i = 1:nb2]
+bs0 = vcat(bs1, bs2, bs3)
 bs = fill(bs0, nr)
-ambiguity = [0.001, 0.01, 0.1, 0.2, 0.4]
-maxiter = [200, 200, 200, 200, 200]
-nreps = [100, 100, 100, 100, 100]
-maxstep = [200, 200, 200, 200, 200]
+ambiguity = [0.001, 0.1, 0.2, 0.3, 0.4]
+maxiter = fill(150, nr)
+nreps = fill(50, nr)
+maxstep = fill(150, nr)
 
 function meanci(data::Vector{Float64})
     n = length(data)
@@ -419,22 +425,41 @@ function meanci(data::Vector{Float64})
     m, (m - hw, m + hw)
 end
 
+# simple info reward function
+ralphas1 = [[1.0, -1/3, -1/3, -1/3],
+         [-1/3, 1.0, -1/3, -1/3],
+         [-1/3, -1/3, 1.0, -1/3],
+         [-1/3, -1/3, -1/3, 1.0]]
+
+# complicated info reward function
+vhi = -10.0
+vlo = 0.1
+ralphas2 = [[1.0, vhi, vhi, vhi],
+        [vhi, 1.0, vhi, vhi],
+        [vhi, vhi, 1.0, vhi],
+        [vhi, vhi, vhi, 1.0],
+        [vlo, -vlo/3, -vlo/3, -vlo/3],
+        [-vlo/3, vlo, -vlo/3, -vlo/3],
+        [-vlo/3, -vlo/3, vlo, -vlo/3],
+        [-vlo/3, -vlo/3, -vlo/3, vlo]]
+
+ra = ralphas2
+disc = 0.95
 uncsize = 0.4
-prob_nom = RockIPOMDP()
+prob_nom = RockIPOMDP(ra, disc)
 solver_nom = RPBVISolver(beliefpoints = bs[1],
     max_iterations = maxiter[1])
-pol_nom = RPBVI.solve(solver_nom, prob_nom)
+pol_nom = RPBVI.solve(solver_nom, prob_nom, verbose = true)
 bu_nom = updater(pol_nom)
 binit_nom = initial_belief_distribution(prob_nom)
-prob_r_nom = RockRIPOMDP(uncsize)
-pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+prob_r_nom = RockRIPOMDP(ra, disc, uncsize)
+pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom, verbose = true)
 @show pol_nom.action_map
 @show pol_r_nom.action_map
 bu_r_nom = updater(pol_r_nom)
 binit_r_nom = initial_belief_distribution(prob_r_nom)
 simulator = RolloutSimulator(max_steps = maxstep[1])
-s_nom = rand(simulator.rng, initial_state_distribution(prob_nom))
-s_r_nom = rand(simulator.rng, initial_state_distribution(prob_r_nom))
+
 
 # #######
 # #check belief updater
@@ -508,16 +533,18 @@ simvals_nr = Array{Float64}(nr, nreps[1],2)
 simvals_rn = Array{Float64}(nr, nreps[1],2)
 simvals_rr = Array{Float64}(nr, nreps[1],2)
 for j = 1:nreps[1]
-    (j % 10 == 0) && print("\rRep $j")
+    print("\rRep $j")
+    s_nom = rand(simulator.rng, initial_state_distribution(prob_nom))
+    s_r_nom = rand(simulator.rng, initial_state_distribution(prob_r_nom))
     # nominal policy against nominal dynamics
     simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
         prob_nom, pol_nom, bu_nom, binit_nom, s_nom)
     # nominal policy against worst-case dynamics
     simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
-        prob_r_nom, pol_nom, bu_nom, binit_nom, s_nom, pol_r_nom.alphas)
+        prob_r_nom, pol_nom, bu_nom, binit_nom, s_r_nom, pol_r_nom.alphas)
     # robust policy against nominal dynamics
     simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
-        prob_nom, pol_r_nom, bu_r_nom, binit_nom, s_nom)
+        prob_nom, pol_r_nom, bu_r_nom, binit_r_nom, s_nom)
     # robust policy against worst-case dynamics
     simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
         prob_r_nom, pol_r_nom, bu_r_nom, binit_r_nom, s_r_nom, pol_r_nom.alphas)
@@ -533,3 +560,128 @@ mp_nn, cip_nn = meanci(simvals_nn[1,:,2])
 mp_nr, cip_nr = meanci(simvals_nr[1,:,2])
 mp_rn, cip_rn = meanci(simvals_rn[1,:,2])
 mp_rr, cip_rr = meanci(simvals_rr[1,:,2])
+
+
+#################################################
+#################################################
+# fix for nom exp not matching sim exp
+using RPOMDPs, RPOMDPModels, RPOMDPToolbox
+using RobustValueIteration
+using SimpleProbabilitySets
+# using Plots; gr()
+const RPBVI = RobustValueIteration
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    m, (m - hw, m + hw)
+end
+
+# random beliefs
+# nr = 1
+# nb = 100
+# nb2 = 10
+# bs1 = [vcat(psample(zeros(2), ones(2)),zeros(2)) for i = 1:nb]
+# bs2 = [vcat(zeros(2), psample(zeros(2), ones(2))) for i = 1:nb]
+# bs3 = [psample(zeros(4), ones(4)) for i = 1:nb2]
+# bs = vcat(bs1, bs2)
+# maxiter = 200
+# maxstep = 200
+# nreps = 100
+
+# random beliefs
+nr = 1
+bdelt = 0.05
+nb2 = 20
+bs1 = [vcat([b, 1-b],zeros(2)) for b in 0.0:bdelt:1.0]
+bs2 = [vcat(zeros(2), [b, 1-b]) for b in 0.0:bdelt:1.0]
+bs3 = [psample(zeros(4), ones(4)) for i = 1:nb2]
+bs = vcat(bs1, bs2, bs3)
+maxiter = 200
+maxstep = 200
+nreps = 100
+
+# simple info reward function
+ralphas1 = [[1.0, -1/3, -1/3, -1/3],
+         [-1/3, 1.0, -1/3, -1/3],
+         [-1/3, -1/3, 1.0, -1/3],
+         [-1/3, -1/3, -1/3, 1.0]]
+
+# complicated info reward function
+vhi = -10.0
+vlo = 0.1
+ralphas2 = [[1.0, vhi, vhi, vhi],
+        [vhi, 1.0, vhi, vhi],
+        [vhi, vhi, 1.0, vhi],
+        [vhi, vhi, vhi, 1.0],
+        [vlo, -vlo/3, -vlo/3, -vlo/3],
+        [-vlo/3, vlo, -vlo/3, -vlo/3],
+        [-vlo/3, -vlo/3, vlo, -vlo/3],
+        [-vlo/3, -vlo/3, -vlo/3, vlo]]
+
+prob_nom = RockIPOMDP(ralphas1, 0.95)
+solver_nom = RPBVISolver(beliefpoints = bs, max_iterations = maxiter)
+pol_nom = RPBVI.solve(solver_nom, prob_nom)
+println(pol_nom.action_map)
+bu_nom = updater(pol_nom)
+binit_nom = initial_belief_distribution(prob_nom)
+
+srand(11)
+nreps = 100
+maxstep = 200
+simvals_nn = Array{Float64}(nr, nreps, 2)
+simulator = RolloutSimulator(max_steps = maxstep)
+for j = 1:nreps
+    (j % 10 == 0) && print("\rRep $j")
+    s_nom = rand(simulator.rng, initial_state_distribution(prob_nom))
+    # nominal policy against nominal dynamics
+    simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
+        prob_nom, pol_nom, bu_nom, binit_nom, s_nom)
+end
+
+value(pol_nom, [0.5, 0.5, 0.0, 0.0])
+value(pol_nom, [1.0, 0.0, 0.0, 0.0])
+value(pol_nom, [0.0, 1.0, 0.0, 0.0])
+value(pol_nom, [0.0, 0.0, 0.5, 0.5])
+m_nn, ci_nn = meanci(simvals_nn[1,:,1])
+mp_nn, cip_nn = meanci(simvals_nn[1,:,2])
+
+xb = 0.0:0.1:1.0
+anom = [action(pol_nom, DiscreteBelief(prob_nom, [b, 1-b, 0.0, 0.0])) for b in xb]
+
+using Plots; gr()
+valfunc1 = [maximum(dot(pol_nom.alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(pol_nom.alphas))
+        for b = 0.0:0.01:1.0]
+x = collect(0:0.01:1.0)
+vplot = plot(x, valfunc1, xticks = 0:0.1:1, label = "Nominal",
+        # title = "Tiger POMDP Value Function",
+        xlab = "Belief, P(State = [b, 1-b, 0 0])",
+        # xlab = "Belief, P(State = Hungry)",
+        ylab = "Expected Total Discounted Reward",
+        legend = :bottomleft,
+        # legend = :topright,
+        line = :dash,
+        linealpha = 0.9)
+# plot!(x, valfunc13, color = :red, linealpha = 0.8, label = "Robust: 0.001")
+# plot!(x, valfunc21, color = :red, linealpha = 0.4, label = "Robust: 0.4")
+# fn = string("value_function_", sname, "_", sversion, ".pdf")
+# path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
+# savefig(vplot, path)
+
+psim2 = RolloutSimulator(max_steps = 10)
+rnum = 28
+prob = probs[rnum]
+simprob = simprobs[rnum]
+sol = policies[rnum]
+bu = updater(sol)
+binit = initial_belief_distribution(prob)
+sinit = rand(psim2.rng, initial_state_distribution(simprob))
+simulate_worst(psim2, simprob, sol, bu, binit, sinit, soldynamics[rnum].alphas)
+
+value(policies[26], initial_belief(probs[26]))
+value(policies[24], initial_belief(probs[24]))
+initial_belief(probs[28]) == initial_belief(probs[26])
+policies[26].action_map == policies[28].action_map
