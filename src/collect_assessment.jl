@@ -267,72 +267,74 @@ CSV.write(joinpath(path, fnsim), simdata)
 # simulate_worst(psim, simprob, solrip, burip, solrip.alphas)
 #
 
+######################################################
+# Belief Set Expansion
+######################################################
+# rng = MersenneTwister(0)
 #
-rng = MersenneTwister(0)
-
-function sampleo(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, b::Vector{Float64}, a)
-    s = sample(states(prob), Weights(b))
-    sp = rand(rng, transition(prob, s, a))
-    o = rand(rng, observation(prob, a, sp))
-    return o
-end
-
-function expandbelief(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, B::Vector{Vector{Float64}})
-    BP = copy(B)
-    bup = DiscreteUpdater(prob)
-    A = actions(prob)
-    na = n_actions(prob)
-    ba = Vector{}(na)
-    for b in B
-        for (ai, a) in enumerate(A)
-            o = sampleo(rng, prob, b, a)
-            db = DiscreteBelief(ip, b)
-            ba[ai] = update(bup, db, a, o).b
-        end
-        aimax = 0
-        vmax = -Inf
-        for (ai, a) in enumerate(A)
-            val = Inf
-            for bp in BP
-                val = min(val, sum(abs.(bp - ba[ai])))
-            end
-            if val > vmax
-                vmax = val
-                aimax = ai
-            end
-        end
-        push!(BP, ba[aimax])
-    end
-    BP
-end
-
-s1 = zeros(27); s1[1] = 1;
-bs_exp = expandbelief(rng, ip, [s1])
-for i = 1:5
-    bs_exp = expandbelief(rng, ip, bs_exp)
-end
-@show length(bs_exp)
-
-# intialize solver
-solver = RPBVISolver(beliefpoints = bs_exp, max_iterations = 17)
-
-# solve
-srand(5917293)
-@time solip = RPBVI.solve(solver, ip, verbose = true);
-@time soltip = RPBVI.solve(solver, tip, verbose = true);
-
-# calculate values
-e1 = zeros(27); e1[1] = 1
-println("Standard Value: ", policyvalue(solip, e1))
-println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
-
-# ipomdp and ripomdp actions for some interesting states
-actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
-        "1,1,1 - 1,1,3" ,"1,1,1 - 1,3,1", "1,1,1 - 3,1,1",
-        "1,1,1 - 1,2,3", "1,1,1 - 3,2,1"]
-dbsip = [DiscreteBelief(ip, states(ip), s) for s in ss]
-asip = [action(solip, db) for db in dbsip]
-dbstip = [DiscreteBelief(tip, states(tip), s) for s in ss]
-astip = [action(soltip, db) for db in dbstip]
-actiondata = DataFrame(Belief = actionind, StdAction = asip, OffNominalAction = astip)
-@show actiondata
+# function sampleo(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, b::Vector{Float64}, a)
+#     s = sample(states(prob), Weights(b))
+#     sp = rand(rng, transition(prob, s, a))
+#     o = rand(rng, observation(prob, a, sp))
+#     return o
+# end
+#
+# function expandbelief(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, B::Vector{Vector{Float64}})
+#     BP = copy(B)
+#     bup = DiscreteUpdater(prob)
+#     A = actions(prob)
+#     na = n_actions(prob)
+#     ba = Vector{}(na)
+#     for b in B
+#         for (ai, a) in enumerate(A)
+#             o = sampleo(rng, prob, b, a)
+#             db = DiscreteBelief(ip, b)
+#             ba[ai] = update(bup, db, a, o).b
+#         end
+#         aimax = 0
+#         vmax = -Inf
+#         for (ai, a) in enumerate(A)
+#             val = Inf
+#             for bp in BP
+#                 val = min(val, sum(abs.(bp - ba[ai])))
+#             end
+#             if val > vmax
+#                 vmax = val
+#                 aimax = ai
+#             end
+#         end
+#         push!(BP, ba[aimax])
+#     end
+#     BP
+# end
+#
+# s1 = zeros(27); s1[1] = 1;
+# bs_exp = expandbelief(rng, ip, [s1])
+# for i = 1:5
+#     bs_exp = expandbelief(rng, ip, bs_exp)
+# end
+# @show length(bs_exp)
+#
+# # intialize solver
+# solver = RPBVISolver(beliefpoints = bs_exp, max_iterations = 17)
+#
+# # solve
+# srand(5917293)
+# @time solip = RPBVI.solve(solver, ip, verbose = true);
+# @time soltip = RPBVI.solve(solver, tip, verbose = true);
+#
+# # calculate values
+# e1 = zeros(27); e1[1] = 1
+# println("Standard Value: ", policyvalue(solip, e1))
+# println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
+#
+# # ipomdp and ripomdp actions for some interesting states
+# actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
+#         "1,1,1 - 1,1,3" ,"1,1,1 - 1,3,1", "1,1,1 - 3,1,1",
+#         "1,1,1 - 1,2,3", "1,1,1 - 3,2,1"]
+# dbsip = [DiscreteBelief(ip, states(ip), s) for s in ss]
+# asip = [action(solip, db) for db in dbsip]
+# dbstip = [DiscreteBelief(tip, states(tip), s) for s in ss]
+# astip = [action(soltip, db) for db in dbstip]
+# actiondata = DataFrame(Belief = actionind, StdAction = asip, OffNominalAction = astip)
+# @show actiondata
