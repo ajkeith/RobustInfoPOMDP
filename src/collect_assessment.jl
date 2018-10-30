@@ -1,7 +1,7 @@
 using RPOMDPModels, RPOMDPs, RPOMDPToolbox
 using RobustValueIteration
 using SimpleProbabilitySets
-using DataFrames, ProgressMeter, CSV, BenchmarkTools
+using DataFrames, ProgressMeter, CSV, BenchmarkTools, StatsBase
 const RPBVI = RobustValueIteration
 TOL = 1e-6
 
@@ -11,6 +11,15 @@ ip = CyberIPOMDP()
 rp = CyberRPOMDP()
 rip = CyberRIPOMDP()
 tip = CyberTestIPOMDP()
+
+function meanci(data::Vector{Float64})
+    n = length(data)
+    m = mean(data)
+    s = std(data)
+    tstar = 1.962
+    hw = tstar * s / sqrt(n)
+    (m - hw, m + hw)
+end
 
 # select belief
 srand(7971023)
@@ -27,29 +36,32 @@ s6 = zeros(27); s6[1] = 0.5; s6[6] = 0.5;
 s7 = zeros(27); s7[1] = 0.5; s7[22] = 0.5;
 ss = [s0, s1, s2, s32, s42, s52, s33, s43, s53, s6, s7]
 nS = length(states(p))
-nrand = 5
+nrand = 50
 bs = Vector{Vector{Float64}}(length(ss) + nrand)
 for i = 1:length(ss)
     bs[i] = ss[i]
 end
 for i = (length(ss)+1):(length(ss) + nrand)
-  bs[i] = psample(zeros(nS), ones(nS))
+    @show i
+    bs[i] = psample(zeros(nS), ones(nS))
 end
 push!(bs, vcat(fill(0.0, nS - 1), 1.0))
 push!(bs, fill(1/nS, nS))
 
 # intialize solver
-solver = RPBVISolver(beliefpoints = bs, max_iterations = 20)
+solver = RPBVISolver(beliefpoints = bs, max_iterations = 17)
 
 # solve
 srand(5917293)
-@time solip = RPBVI.solve(solver, ip);
-@time solrip = RPBVI.solve(solver, rip);
+@time solip = RPBVI.solve(solver, ip, verbose = true);
+@time solrip = RPBVI.solve(solver, rip, verbose = true);
+@time soltip = RPBVI.solve(solver, tip, verbose = true);
 
 # calculate values
 e1 = zeros(27); e1[1] = 1
 println("Standard Value: ", policyvalue(solip, e1))
 println("Robust Value: ", policyvalue(solrip, e1))
+println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
 
 # ipomdp and ripomdp actions for some interesting states
 actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
@@ -66,9 +78,9 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 @show actiondata
 
 # sim values for nominal and robust solutions for off-nominal case
-ntest = 2
-nreps = 40
-nsteps = 20
+ntest = 3
+nreps = 10
+nsteps = 17
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:ntest] # simulated percent correct
@@ -80,20 +92,22 @@ pms = Array{Float64}(ntest) # mean percent correct
 pss = Array{Float64}(ntest) # std percent correct
 
 rseed = 92378432
-simprob = rip
-simdynamics = :worst
+simprob = tip
+simdynamics = :precise
 for i in 1:1
     # println("Run ", ceil(Int, i / 2))
-    buip, burip = updater(solip), updater(solrip)
+    buip, burip, butip = updater(solip), updater(solrip), updater(soltip)
     println("Nominal")
     srand(rseed)
-    binitip = initial_belief_distribution(ip)
-    sinitrip = rand(psim.rng, initial_state_distribution(simprob))
+    binit_ip = SparseCat(states(ip), initial_belief(ip))
+    binit_rip = SparseCat(states(ip), initial_belief(rip))
+    binit_tip = SparseCat(states(ip), initial_belief(tip))
+    sinit = rand(psim.rng, initial_state_distribution(simprob))
     @showprogress 1 "Simulating nominal value..." for j = 1:nreps
         if simdynamics == :worst
-            sv, sp = simulate_worst(psim, simprob, solip, buip, binitip, sinitrip, solrip.alphas)
+            sv, sp = simulate_worst(psim, simprob, solip, buip, binit_ip, sinit, solrip.alphas)
         else
-            sv, sp = simulate(psim, simprob, solip, buip)
+            sv, sp = simulate(psim, simprob, solip, buip, binit_ip, sinit)
         end
         simvals[i][j] = sv
         simps[i][j] = sp
@@ -105,13 +119,12 @@ for i in 1:1
     pss[i] = std(simps[i])
     println("Robust")
     srand(rseed)
-    binitrip = initial_belief_distribution(rip)
     @showprogress 1 "Simulating robust value..." for j = 1:nreps
         sv, sp = simulate(psim, simprob, solrip, buip)
         if simdynamics == :worst
-            sv, sp = simulate_worst(psim, simprob, solrip, burip, binitrip, sinitrip, solrip.alphas)
+            sv, sp = simulate_worst(psim, simprob, solrip, burip, binit_rip, sinit, solrip.alphas)
         else
-            sv, sp = simulate(psim, simprob, solrip, buip)
+            sv, sp = simulate(psim, simprob, solrip, burip, binit_rip, sinit)
         end
         simvals[i+1][j] = sv
         simps[i+1][j] = sp
@@ -121,17 +134,37 @@ for i in 1:1
     vmins[i+1] = minimum(simvals[i+1])
     pms[i+1] = mean(simps[i+1])
     pss[i+1] = std(simps[i+1])
+    println("OffNominal")
+    srand(rseed)
+    @showprogress 1 "Simulating off-nominal value..." for j = 1:nreps
+        if simdynamics == :worst
+            sv, sp = simulate_worst(psim, simprob, soltip, butip, binit_tip, sinit, solrip.alphas)
+        else
+            sv, sp = simulate(psim, simprob, soltip, butip, binit_tip, sinit)
+        end
+        simvals[i+2][j] = sv
+        simps[i+2][j] = sp
+    end
+    vms[i+2] = mean(simvals[i+2])
+    vss[i+2] = std(simvals[i+2])
+    vmins[i+2] = minimum(simvals[i+2])
+    pms[i+2] = mean(simps[i+2])
+    pss[i+2] = std(simps[i+2])
 end
 
 sname = "assessment"
-sversion = "4.0"
-ves = [policyvalue(solip, e1), policyvalue(solrip, e1)]
-rdata = DataFrame(ID = ["Nominal", "Robust"], ExpValue = ves,
+sversion = "5.1"
+ves = [policyvalue(solip, e1), policyvalue(solrip, e1),
+        policyvalue(soltip, e1)]
+rdata = DataFrame(ID = ["Nominal", "Robust","OffNominal"], ExpValue = ves,
             SimMean = vms, SimStd = vss, SimMin = vmins,
             SimPercentMean = pms, SimPercentStd = pss)
-simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2])
+simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2],
+            OffNominal = simvals[3])
 @show rdata
-
+@show meanci(simdata[:NominalSim])
+@show meanci(simdata[:RobustSim])
+@show meanci(simdata[:OffNominal])
 
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
 fnactions = string("exp_actions_", sname, "_", sversion, ".csv")
@@ -233,3 +266,73 @@ CSV.write(joinpath(path, fnsim), simdata)
 # RPOMDPToolbox.generate_sor_worst(rip, b, s, a, rng, solrip.alphas)[1]
 # simulate_worst(psim, simprob, solrip, burip, solrip.alphas)
 #
+
+#
+rng = MersenneTwister(0)
+
+function sampleo(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, b::Vector{Float64}, a)
+    s = sample(states(prob), Weights(b))
+    sp = rand(rng, transition(prob, s, a))
+    o = rand(rng, observation(prob, a, sp))
+    return o
+end
+
+function expandbelief(rng::AbstractRNG, prob::Union{POMDP,IPOMDP}, B::Vector{Vector{Float64}})
+    BP = copy(B)
+    bup = DiscreteUpdater(prob)
+    A = actions(prob)
+    na = n_actions(prob)
+    ba = Vector{}(na)
+    for b in B
+        for (ai, a) in enumerate(A)
+            o = sampleo(rng, prob, b, a)
+            db = DiscreteBelief(ip, b)
+            ba[ai] = update(bup, db, a, o).b
+        end
+        aimax = 0
+        vmax = -Inf
+        for (ai, a) in enumerate(A)
+            val = Inf
+            for bp in BP
+                val = min(val, sum(abs.(bp - ba[ai])))
+            end
+            if val > vmax
+                vmax = val
+                aimax = ai
+            end
+        end
+        push!(BP, ba[aimax])
+    end
+    BP
+end
+
+s1 = zeros(27); s1[1] = 1;
+bs_exp = expandbelief(rng, ip, [s1])
+for i = 1:5
+    bs_exp = expandbelief(rng, ip, bs_exp)
+end
+@show length(bs_exp)
+
+# intialize solver
+solver = RPBVISolver(beliefpoints = bs_exp, max_iterations = 17)
+
+# solve
+srand(5917293)
+@time solip = RPBVI.solve(solver, ip, verbose = true);
+@time soltip = RPBVI.solve(solver, tip, verbose = true);
+
+# calculate values
+e1 = zeros(27); e1[1] = 1
+println("Standard Value: ", policyvalue(solip, e1))
+println("Off Nominal Precise Value: ", policyvalue(soltip, e1))
+
+# ipomdp and ripomdp actions for some interesting states
+actionind = ["unif", "2,2,2", "1,1,1", "1,1,1 - 1,1,2", "1,1,1 - 1,2,1", "1,1,1 - 2,1,1",
+        "1,1,1 - 1,1,3" ,"1,1,1 - 1,3,1", "1,1,1 - 3,1,1",
+        "1,1,1 - 1,2,3", "1,1,1 - 3,2,1"]
+dbsip = [DiscreteBelief(ip, states(ip), s) for s in ss]
+asip = [action(solip, db) for db in dbsip]
+dbstip = [DiscreteBelief(tip, states(tip), s) for s in ss]
+astip = [action(soltip, db) for db in dbstip]
+actiondata = DataFrame(Belief = actionind, StdAction = asip, OffNominalAction = astip)
+@show actiondata
