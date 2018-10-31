@@ -127,12 +127,13 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 
 
 
+# set sim structures
+nreps = 3
 bus = [updater(solip), updater(solrip), updater(soltip)]
 binits = [SparseCat(states(ip), initial_belief(ip)),
     SparseCat(states(rip), initial_belief(rip)),
     SparseCat(states(tip), initial_belief(tip))]
 sols = [solip, solrip, soltip]
-
 psim = RolloutSimulator(max_steps = nsteps)
 simvals = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated values
 simps = [Vector{Float64}(nreps) for _ in 1:nrows] # simulated percent correct
@@ -145,7 +146,7 @@ pss = Array{Float64}(nrows) # std percent correct
 pci = Array{Tuple{Float64,Float64}}(nrows) # 95% ci of mean of sim percent correct
 
 # run simluation
-simprob = tip
+simprob = rip
 if simprob == tip
     simprobnames = fill("Off Nominal", nrows)
 elseif simprob == rip
@@ -196,6 +197,24 @@ fnsim = string("exp_sim_values_", sname, "_", sversion, ".csv")
 CSV.write(joinpath(path, fnactions), actiondata)
 CSV.write(joinpath(path, fnresults), rdata)
 CSV.write(joinpath(path, fnsim), simdata)
+
+println("Data Collection Complete.")
+
+
+
+######################################################
+# History Exploration
+######################################################
+nsteps = 6
+psim = RolloutSimulator(max_steps = nsteps)
+simprob = ip
+sol = solip
+bu = bus[1]
+binit = binits[1]
+simulate(psim, simprob, sol, bu, binit, sinit; verbose = true)
+
+simprob = rip
+simulate_worst(psim, simprob, sol, bu, binit, sinit, solrip.alphas; verbose = true)
 
 println("Data Collection Complete.")
 
