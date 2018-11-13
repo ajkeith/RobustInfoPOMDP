@@ -133,7 +133,7 @@ end
 ##################################################
 
 sname = "rock"
-sversion = "8.0"
+sversion = "9.0"
 nreps = 100
 
 # info sname runs
@@ -324,31 +324,56 @@ valfunc19 = [maximum(dot(policies[19].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:l
         for b = 0.0:0.01:1.0]
 valfunc21 = [maximum(dot(policies[21].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[21].alphas))
         for b = 0.0:0.01:1.0]
-valfunc13 = [maximum(dot(policies[23].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[23].alphas))
-        for b = 0.0:0.01:1.0]
-valfunc15 = [maximum(dot(policies[25].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[25].alphas))
-        for b = 0.0:0.01:1.0]
-valfunc17 = [maximum(dot(policies[27].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[27].alphas))
-        for b = 0.0:0.01:1.0]
-valfunc19 = [maximum(dot(policies[29].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[29].alphas))
-        for b = 0.0:0.01:1.0]
-valfunc21 = [maximum(dot(policies[31].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[31].alphas))
-        for b = 0.0:0.01:1.0]
 x = collect(0:0.01:1.0)
 vplot = plot(x, valfunc1, xticks = 0:0.1:1, label = "Nominal",
         # title = "Tiger POMDP Value Function",
         xlab = "Belief, P(State = Bad | Position = 1)",
         # xlab = "Belief, P(State = Hungry)",
         ylab = "Expected Total Discounted Reward",
-        legend = :bottomleft,
+        legend = :top,
         # legend = :topright,
         line = :dash,
-        linealpha = 0.9)
-plot!(x, valfunc13, color = :red, linealpha = 0.8, label = "Robust: 0.001")
-plot!(x, valfunc15, color = :red, linealpha = 0.7, label = "Robust: 0.1")
-plot!(x, valfunc17, color = :red, linealpha = 0.6, label = "Robust: 0.2")
-plot!(x, valfunc19, color = :red, linealpha = 0.5, label = "Robust: 0.3")
-plot!(x, valfunc21, color = :red, linealpha = 0.4, label = "Robust: 0.4")
-fn = string("value_function_", sname, "_", sversion, ".pdf")
+        linealpha = 1,
+        linewidth = 2)
+plot!(x, valfunc13, linewidth = 2, color = :red, linealpha = 1, label = "Robust: 0.001")
+plot!(x, valfunc15, linewidth = 2, color = :red, linealpha = 0.7, label = "Robust: 0.1")
+plot!(x, valfunc17, linewidth = 2, color = :red, linealpha = 0.6, label = "Robust: 0.2")
+plot!(x, valfunc19, linewidth = 2, color = :red, linealpha = 0.5, label = "Robust: 0.3")
+plot!(x, valfunc21, linewidth = 2, color = :red, linealpha = 0.3, label = "Robust: 0.4")
+fn = string("value_function_", sname, "_simple_3.pdf")
+path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
+savefig(vplot, path)
+
+using Plots; gr()
+rnum = 7
+valfunc7 = [maximum(dot(policies[rnum].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[rnum].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc23 = [maximum(dot(policies[23].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[23].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc215 = [maximum(dot(policies[25].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[25].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc27 = [maximum(dot(policies[27].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[27].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc29 = [maximum(dot(policies[29].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[29].alphas))
+        for b = 0.0:0.01:1.0]
+valfunc31 = [maximum(dot(policies[31].alphas[i], [b, 1-b, 0.0, 0.0]) for i = 1:length(policies[31].alphas))
+        for b = 0.0:0.01:1.0]
+x = collect(0:0.01:1.0)
+vplot = plot(x, valfunc7, xticks = 0:0.1:1, label = "Nominal",
+        # title = "Tiger POMDP Value Function",
+        xlab = "Belief, P(State = Bad | Position = 1)",
+        # xlab = "Belief, P(State = Hungry)",
+        ylab = "Expected Total Discounted Reward",
+        legend = :top,
+        # legend = :topright,
+        line = :dash,
+        linealpha = 1,
+        linewidth = 2)
+plot!(x, valfunc23, linewidth = 2, color = :red, linealpha = 1, label = "Robust: 0.001")
+plot!(x, valfunc25, linewidth = 2, color = :red, linealpha = 0.7, label = "Robust: 0.1")
+plot!(x, valfunc27, linewidth = 2, color = :red, linealpha = 0.6, label = "Robust: 0.2")
+plot!(x, valfunc29, linewidth = 2, color = :red, linealpha = 0.5, label = "Robust: 0.3")
+plot!(x, valfunc31, linewidth = 2, color = :red, linealpha = 0.3, label = "Robust: 0.4")
+fn = string("value_function_", sname, "_complex_3.pdf")
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(vplot, path)

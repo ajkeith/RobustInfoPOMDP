@@ -44,8 +44,8 @@ srand(8473272)
 bs = [[b, 1-b] for b in 0.0:0.01:1.0]
 prob = TigerPOMDP(0.95)
 prob2 = Baby2POMDP(-5.0, -10.0, 0.9)
-sr = RPBVISolver(beliefpoints = bs, max_iterations = 1000)
-sr2 = RPBVISolver(beliefpoints = bs, max_iterations = 1000)
+sr = RPBVISolver(beliefpoints = bs, max_iterations = 200)
+sr2 = RPBVISolver(beliefpoints = bs, max_iterations = 200)
 polr = RobustValueIteration.solve(sr, prob)
 polr2 = RobustValueIteration.solve(sr2, prob2)
 bur = updater(polr)
@@ -80,13 +80,16 @@ valsref_tiger = [maximum(dot(alphasref_tiger[i], [b, 1-b]) for i = 1:length(alph
         for b = 0.0:0.01:1.0]
 
 x = collect(0:0.01:1.0)
-p_tiger = Plots.plot(x, [valsref_tiger, plotvals0_tiger], xticks = 0:0.1:1,
-        legend = :top, label = ["SARSOP","PBVI"],
+p_tiger = Plots.plot(x, plotvals0_tiger, xticks = 0:0.1:1,
+        legend = :top, label = "PBVI",
         # title = "Tiger POMDP Value Function",
         xlab = "Belief, P(State = Tiger Left)",
         ylab = "Expected Total Discounted Reward",
-        line = (2, [:dash :solid]), alpha = 0.7)
-fn = "value_function_tiger.pdf"
+        line = (4, :solid, :red), alpha = 0.5)
+plot!(x, valsref_tiger,
+    label = "SARSOP", line = :dash, alpha = 1, linewidth = 2,
+    linecolor = :blue)
+fn = "value_function_tiger_2.pdf"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(p_tiger, path)
 
@@ -96,22 +99,26 @@ valsref_baby = [maximum(dot(alphasref_baby[i], [1-b, b]) for i = 1:length(alphas
         for b = 0.0:0.01:1.0]
 
 x = collect(0:0.01:1.0)
-p_baby = Plots.plot(x, [valsref_baby, plotvals0_baby], xticks = 0:0.1:1,
-        legend = :topright, label = ["SARSOP","PBVI"],
+p_baby = Plots.plot(x, plotvals0_baby, xticks = 0:0.1:1,
+        legend = :topright, label = "PBVI",
         # title = "Baby POMDP Value Function",
         xlab = "Belief, P(State = Hungry)",
         ylab = "Expected Total Discounted Reward",
-        line = (2,[:dash :solid]), alpha = 0.7)
-fn = "value_function_baby.pdf"
+        line = (4, :solid, :red, 0.5))
+plot!(x, valsref_baby, label = "SARSOP",
+    line = (2, :dash, :blue, 1.0))
+fn = "value_function_baby_2.pdf"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(p_baby, path)
 
+
+#########################################
 # RPBVI Robust POMDPs Tiger
 # unc size = 0.001, 0.01, 0.05
 srand(8473272)
 nr = 5
 bs = fill([[b, 1-b] for b in 0.0:0.05:1.0], nr)
-ambiguity = [0.1, 0.01, 0.05, 0.1, 0.2]
+ambiguity = [0.001, 0.01, 0.05, 0.1, 0.2]
 maxiter = [100, 100, 100, 100, 100]
 nreps = [1, 1, 500, 1, 1]
 maxstep = [100, 100, 100, 100, 100]
@@ -127,98 +134,98 @@ ci_tiger = Vector{Tuple{Float64, Float64}}(nr)
 ci_nom_tiger = Vector{Tuple{Float64, Float64}}(nr)
 plotvals_tiger = Vector{Vector{Float64}}(nr)
 
-# # plot value
-# for i = 1:nr
-#     println("Starting loop $i...")
-#     prob = TigerRPOMDP(0.95, ambiguity[i])
-#     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
-#     println("Calculating policy...")
-#     polr = RobustValueIteration.solve(sr, prob)
-#     plotvals_tiger[i] = [maximum(dot(polr.alphas[j], [1-b, b]) for j = 1:length(polr.alphas))
-#         for b = 0.0:0.01:1.0]
-# end
-
-function meanci(data::Vector{Float64})
-    n = length(data)
-    m = mean(data)
-    s = std(data)
-    tstar = 1.962
-    hw = tstar * s / sqrt(n)
-    m, (m - hw, m + hw)
-end
-
-nreps[1] = 500
-uncsize = 0.05
-prob_nom = TigerPOMDP(0.95)
-solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
-pol_nom = RPBVI.solve(solver_nom, prob_nom)
-bu_nom = updater(pol_nom)
-prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
-pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
-bu_r_nom = updater(pol_r_nom)
-simulator = RolloutSimulator(max_steps = maxstep[1])
-simvals_nn = Array{Float64}(nr, nreps[1],2)
-simvals_nr = Array{Float64}(nr, nreps[1],2)
-simvals_rn = Array{Float64}(nr, nreps[1],2)
-simvals_rr = Array{Float64}(nr, nreps[1],2)
-for j = 1:nreps[1]
-    (j % 10 == 0) && print("\rRep $j")
-    # nominal policy against nominal dynamics
-    simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
-        prob_nom, pol_nom, bu_nom)
-    # nominal policy against worst-case dynamics
-    simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
-        prob_r_nom, pol_nom, bu_nom, pol_r_nom.alphas)
-    # robust policy against nominal dynamics
-    simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
-        prob_nom, pol_r_nom, bu_r_nom)
-    # robust policy against worst-case dynamics
-    simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
-        prob_r_nom, pol_r_nom, bu_r_nom, pol_r_nom.alphas)
-end
-value(pol_nom, [0.5, 0.5])
-value(pol_r_nom, [0.5, 0.5])
-m_nn, ci_nn = meanci(simvals_nn[1,:,1])
-m_nr, ci_nr = meanci(simvals_nr[1,:,1])
-m_rn, ci_rn = meanci(simvals_rn[1,:,1])
-m_rr, ci_rr = meanci(simvals_rr[1,:,1])
-
-
-# sim value
-srand(8473272)
-for i = 1:1
-    println("Loop $i")
+# plot value
+for i = 1:nr
+    println("Starting loop $i...")
     prob = TigerRPOMDP(0.95, ambiguity[i])
     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
     println("Calculating policy...")
     polr = RobustValueIteration.solve(sr, prob)
-    bur = updater(polr)
-    policyvalue_tiger[i] = value(polr, [0.5,0.5])
-    println("Simulating value...")
-    simvals_tiger_temp = Vector{}(nreps[i])
-    simps_tiger_temp = Vector{}(nreps[i])
-    simvals_tiger_nom_temp = Vector{}(nreps[i])
-    simps_tiger_nom_temp = Vector{}(nreps[i])
-    simulator = RolloutSimulator(max_steps = maxstep[i])
-    for j = 1:nreps[i]
-        (j % 10 == 0) && print("\rRep $j")
-        simvals_tiger_temp[j], simps_tiger_temp[j]  = simulate_worst(simulator,
-            prob, polr, bur, polr.alphas)
-        simvals_tiger_nom_temp[j], simps_tiger_nom_temp[j]  = simulate_worst(simulator,
-            prob, pol_nom, bu_nom, polr.alphas)
-    end
-    simvals_tiger[i] = simvals_tiger_temp
-    simps_tiger[i] = simps_tiger_temp
-    simvals_tiger_nom[i] = simvals_tiger_nom_temp
-    simps_tiger_nom[i] = simps_tiger_nom_temp
-    m_tiger[i] = mean(simvals_tiger[i])
-    m_nom_tiger[i] = mean(simvals_tiger_nom[i])
-    s_tiger[i] = std(simvals_tiger[i])
-    tstar = 1.962
-    ci_tiger[i] = (m_tiger[i] - tstar * s_tiger[i] / sqrt(nreps[i]), m_tiger[i] + tstar * s_tiger[i] / sqrt(nreps[i]))
-    ci_nom_tiger[i] = (m_nom_tiger[i] - tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]),
-        m_nom_tiger[i] + tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]))
+    plotvals_tiger[i] = [maximum(dot(polr.alphas[j], [1-b, b]) for j = 1:length(polr.alphas))
+        for b = 0.0:0.01:1.0]
 end
+
+# function meanci(data::Vector{Float64})
+#     n = length(data)
+#     m = mean(data)
+#     s = std(data)
+#     tstar = 1.962
+#     hw = tstar * s / sqrt(n)
+#     m, (m - hw, m + hw)
+# end
+#
+# nreps[1] = 500
+# uncsize = 0.05
+# prob_nom = TigerPOMDP(0.95)
+# solver_nom = RPBVISolver(beliefpoints = bs[1], max_iterations = maxiter[1])
+# pol_nom = RPBVI.solve(solver_nom, prob_nom)
+# bu_nom = updater(pol_nom)
+# prob_r_nom = SimpleTigerRPOMDP(0.95, uncsize)
+# pol_r_nom = RPBVI.solve(solver_nom, prob_r_nom)
+# bu_r_nom = updater(pol_r_nom)
+# simulator = RolloutSimulator(max_steps = maxstep[1])
+# simvals_nn = Array{Float64}(nr, nreps[1],2)
+# simvals_nr = Array{Float64}(nr, nreps[1],2)
+# simvals_rn = Array{Float64}(nr, nreps[1],2)
+# simvals_rr = Array{Float64}(nr, nreps[1],2)
+# for j = 1:nreps[1]
+#     (j % 10 == 0) && print("\rRep $j")
+#     # nominal policy against nominal dynamics
+#     simvals_nn[1,j,1], simvals_nn[1,j,2] = simulate(simulator,
+#         prob_nom, pol_nom, bu_nom)
+#     # nominal policy against worst-case dynamics
+#     simvals_nr[1,j,1], simvals_nr[1,j,2]  = simulate_worst(simulator,
+#         prob_r_nom, pol_nom, bu_nom, pol_r_nom.alphas)
+#     # robust policy against nominal dynamics
+#     simvals_rn[1,j,1], simvals_rn[1,j,2] = simulate(simulator,
+#         prob_nom, pol_r_nom, bu_r_nom)
+#     # robust policy against worst-case dynamics
+#     simvals_rr[1,j,1], simvals_rr[1,j,2]  = simulate_worst(simulator,
+#         prob_r_nom, pol_r_nom, bu_r_nom, pol_r_nom.alphas)
+# end
+# value(pol_nom, [0.5, 0.5])
+# value(pol_r_nom, [0.5, 0.5])
+# m_nn, ci_nn = meanci(simvals_nn[1,:,1])
+# m_nr, ci_nr = meanci(simvals_nr[1,:,1])
+# m_rn, ci_rn = meanci(simvals_rn[1,:,1])
+# m_rr, ci_rr = meanci(simvals_rr[1,:,1])
+#
+#
+# # sim value
+# srand(8473272)
+# for i = 1:1
+#     println("Loop $i")
+#     prob = TigerRPOMDP(0.95, ambiguity[i])
+#     sr = RPBVISolver(beliefpoints = bs[i], max_iterations = maxiter[i])
+#     println("Calculating policy...")
+#     polr = RobustValueIteration.solve(sr, prob)
+#     bur = updater(polr)
+#     policyvalue_tiger[i] = value(polr, [0.5,0.5])
+#     println("Simulating value...")
+#     simvals_tiger_temp = Vector{}(nreps[i])
+#     simps_tiger_temp = Vector{}(nreps[i])
+#     simvals_tiger_nom_temp = Vector{}(nreps[i])
+#     simps_tiger_nom_temp = Vector{}(nreps[i])
+#     simulator = RolloutSimulator(max_steps = maxstep[i])
+#     for j = 1:nreps[i]
+#         (j % 10 == 0) && print("\rRep $j")
+#         simvals_tiger_temp[j], simps_tiger_temp[j]  = simulate_worst(simulator,
+#             prob, polr, bur, polr.alphas)
+#         simvals_tiger_nom_temp[j], simps_tiger_nom_temp[j]  = simulate_worst(simulator,
+#             prob, pol_nom, bu_nom, polr.alphas)
+#     end
+#     simvals_tiger[i] = simvals_tiger_temp
+#     simps_tiger[i] = simps_tiger_temp
+#     simvals_tiger_nom[i] = simvals_tiger_nom_temp
+#     simps_tiger_nom[i] = simps_tiger_nom_temp
+#     m_tiger[i] = mean(simvals_tiger[i])
+#     m_nom_tiger[i] = mean(simvals_tiger_nom[i])
+#     s_tiger[i] = std(simvals_tiger[i])
+#     tstar = 1.962
+#     ci_tiger[i] = (m_tiger[i] - tstar * s_tiger[i] / sqrt(nreps[i]), m_tiger[i] + tstar * s_tiger[i] / sqrt(nreps[i]))
+#     ci_nom_tiger[i] = (m_nom_tiger[i] - tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]),
+#         m_nom_tiger[i] + tstar * std(simvals_tiger_nom[i]) / sqrt(nreps[i]))
+# end
 
 # reference values
 alphasref_tiger = [[-81.5975, 28.4025],
@@ -230,22 +237,29 @@ valsref_tiger = [maximum(dot(alphasref_tiger[i], [b, 1-b]) for i = 1:length(alph
         for b = 0.0:0.01:1.0]
 
 x = collect(0:0.01:1.0)
-p_tiger_robust = plot(x, valsref_tiger, xticks = 0:0.1:1, label = "SARSOP",
-        # title = "Tiger POMDP Value Function",
+p_tiger_robust = plot(x, [valsref_tiger, plotvals_tiger],
+        xticks = 0:0.1:1, label = "SARSOP",
         xlab = "Belief, P(State = Tiger Left)",
         ylab = "Expected Total Discounted Reward",
-        legend = :bottomleft,
-        line = :dash,
-        linealpha = 0.9)
-plot!(x, plotvals0_tiger, color = :red, linealpha = 0.8, label = "PBVI")
-plot!(x, plotvals_tiger[1], color = :red, linealpha = 0.7, label = "RPBVI: 0.001")
-plot!(x, plotvals_tiger[2], color = :red, linealpha = 0.6, label = "RPBVI: 0.01")
-plot!(x, plotvals_tiger[3], color = :red, linealpha = 0.5, label = "RPBVI: 0.05")
-plot!(x, plotvals_tiger[4], color = :red, linealpha = 0.4, label = "RPBVI: 0.1")
-plot!(x, plotvals_tiger[5], color = :red, linealpha = 0.3, label = "RPBVI: 0.2")
-fn = "value_function_tiger_robust_2.pdf"
+        legend = :none,
+        linestyle = [:dot :solid :solid :solid :solid :solid],
+        linewidth = [4 2 2 2 2 2],
+        linealpha = [1 0.9 0.7 0.5 0.3 0.1],
+        linecolor = [:blue :red :red :red :red :red])
+# plot!(x, plotvals0_tiger, line = (2, :red, 1.0), label = "PBVI")
+tigerrobustlabels = ["SARSOP", "RPBVI: 0.001", "RPBVI: 0.01", "RPBVI: 0.05", "RPBVI: 0.1", "RPBVI: 0.2"]
+l = @layout [a b{0.2w}]
+p1 = p_tiger_robust
+p2 = plot(x, [valsref_tiger, plotvals_tiger],
+        linestyle = [:dot :solid :solid :solid :solid :solid],
+        linewidth = [4 2 2 2 2 2],
+        linealpha = [1 0.9 0.7 0.5 0.3 0.1],
+        linecolor = [:blue :red :red :red :red :red],
+        label=tigerrobustlabels, grid=false, xlims=(20,3), showaxis=false)
+p_tiger_robust_out = plot(p1,p2,layout=l)
+fn = "value_function_tiger_robust_4.pdf"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
-savefig(p_tiger_robust, path)
+savefig(p_tiger_robust_out, path)
 
 # RPBVI Robust POMDPs Baby
 # unc size = 0.001, 0.1
@@ -292,17 +306,42 @@ p_baby_robust = plot(x, valsref_baby, xticks = 0:0.1:1, label = "SARSOP",
         ylab = "Expected Total Discounted Reward",
         legend = :bottomright,
         color = :blue,
-        line = :dash,
-        linealpha = 1.0)
-# plot!(x, plotvals0_baby, color = :red, linealpha = 0.8, label = "PBVI")
-plot!(x, plotvals_baby[1], color = :red, linealpha = 0.7, label = "RPBVI: 0.001")
-plot!(x, plotvals_baby[2], color = :red, linealpha = 0.6, label = "RPBVI: 0.01")
-plot!(x, plotvals_baby[3], color = :red, linealpha = 0.5, label = "RPBVI: 0.05")
-plot!(x, plotvals_baby[4], color = :red, linealpha = 0.4, label = "RPBVI: 0.1")
-plot!(x, plotvals_baby[5], color = :red, linealpha = 0.3, label = "RPBVI: 0.2")
-fn = "value_function_baby_robust.pdf"
+        line = :dot,
+        linealpha = 1.0,
+        linewidth = 4)
+# plot!(x, plotvals0_baby, line = (2, :red, 1.0), label = "PBVI")
+plot!(x, plotvals_baby[1], line = (2, :red, 0.9), label = "RPBVI: 0.001")
+plot!(x, plotvals_baby[2], line = (2, :red, 0.7), label = "RPBVI: 0.01")
+plot!(x, plotvals_baby[3], line = (2, :red, 0.5), label = "RPBVI: 0.05")
+plot!(x, plotvals_baby[4], line = (2, :red, 0.3), label = "RPBVI: 0.1")
+plot!(x, plotvals_baby[5], line = (2, :red, 0.1), label = "RPBVI: 0.2")
+fn = "value_function_baby_robust_3.pdf"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(p_baby_robust, path)
+
+p_baby_robust = plot(x, [valsref_baby, plotvals_baby],
+        xticks = 0:0.1:1, label = "SARSOP",
+        xlab = "Belief, P(State = Hungry)",
+        ylab = "Expected Total Discounted Reward",
+        legend = :none,
+        linestyle = [:dot :solid :solid :solid :solid :solid],
+        linewidth = [4 2 2 2 2 2],
+        linealpha = [1 0.9 0.7 0.5 0.3 0.1],
+        linecolor = [:blue :red :red :red :red :red])
+# plot!(x, plotvals0_tiger, line = (2, :red, 1.0), label = "PBVI")
+babyrobustlabels = ["SARSOP", "RPBVI: 0.001", "RPBVI: 0.01", "RPBVI: 0.05", "RPBVI: 0.1", "RPBVI: 0.2"]
+l = @layout [a b{0.2w}]
+p1 = p_baby_robust
+p2 = plot(x, [valsref_baby, plotvals_baby],
+        linestyle = [:dot :solid :solid :solid :solid :solid],
+        linewidth = [4 2 2 2 2 2],
+        linealpha = [1 0.9 0.7 0.5 0.3 0.1],
+        linecolor = [:blue :red :red :red :red :red],
+        label=babyrobustlabels, grid=false, xlims=(20,3), showaxis=false)
+p_baby_robust_out = plot(p1,p2,layout=l)
+fn = "value_function_baby_robust_4.pdf"
+path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
+savefig(p_baby_robust_out, path)
 
 
 ############################################

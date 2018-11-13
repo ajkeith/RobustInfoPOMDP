@@ -20,17 +20,17 @@ y1 = [negentropy([x[i], 1 - x[i]]) for i = 1:length(x)]
 y2 = [cityblock([x[i], 1 - x[i]], [0.5, 0.5]) for i = 1:length(x)]
 y3 = [euclidean([x[i], 1 - x[i]], [0.5, 0.5]) for i = 1:length(x)]
 y4 = [norm([x[i], 1 - x[i]] - [0.5, 0.5], Inf) for i = 1:length(x)]
-plot(x, y1, label = "Negative Entropy", legend = :topright,
+plot(x, y1, label = "Negative Entropy", legend = :top,
     xlab = "Belief, P(State = 1)",
     ylab = "Belief Reward",
     linestyle = :solid,
-    linewidth = 1)
+    linewidth = 2)
 plot!(x, y2, label = "1-Norm", linestyle = :dash,
-    linecolor = :red, linealpha = 1)
+    linecolor = :red, linealpha = 1, linewidth = 2)
 plot!(x, y3, label = "2-Norm", linestyle = :dot,
-    linecolor = :red, linealpha = 0.6)
+    linecolor = :red, linealpha = 1, linewidth = 2)
 plot!(x, y4, label = "Infinity-Norm", linestyle = :dashdot,
-    linecolor = :red, linealpha = 0.3)
+    linecolor = :red, linealpha = 0.6, linewidth = 2)
 fn = string("belief_reward_function.pdf")
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data\\figures\\",fn)
 savefig(path)

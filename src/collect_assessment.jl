@@ -128,7 +128,8 @@ actiondata = DataFrame(Belief = actionind, StdAction = asip,
 
 
 # set sim structures
-nreps = 3
+nreps = 25
+nsteps = 100
 bus = [updater(solip), updater(solrip), updater(soltip)]
 binits = [SparseCat(states(ip), initial_belief(ip)),
     SparseCat(states(rip), initial_belief(rip)),
@@ -146,7 +147,7 @@ pss = Array{Float64}(nrows) # std percent correct
 pci = Array{Tuple{Float64,Float64}}(nrows) # 95% ci of mean of sim percent correct
 
 # run simluation
-simprob = rip
+simprob = tip
 if simprob == tip
     simprobnames = fill("Off Nominal", nrows)
 elseif simprob == rip
@@ -190,6 +191,7 @@ simdata = DataFrame(NominalSim = simvals[1], RobustSim = simvals[2],
             OffNominal = simvals[3])
 @show rdata
 
+sversion = "8.1"
 path = joinpath(homedir(),".julia\\v0.6\\RobustInfoPOMDP\\data")
 fnactions = string("exp_actions_", sname, "_", sversion, ".csv")
 fnresults = string("exp_results_", sname, "_", sversion, ".csv")
@@ -200,23 +202,22 @@ CSV.write(joinpath(path, fnsim), simdata)
 
 println("Data Collection Complete.")
 
-
-
-######################################################
-# History Exploration
-######################################################
-nsteps = 6
-psim = RolloutSimulator(max_steps = nsteps)
-simprob = ip
-sol = solip
-bu = bus[1]
-binit = binits[1]
-simulate(psim, simprob, sol, bu, binit, sinit; verbose = true)
-
-simprob = rip
-simulate_worst(psim, simprob, sol, bu, binit, sinit, solrip.alphas; verbose = true)
-
-println("Data Collection Complete.")
+# ######################################################
+# # History Exploration
+# ######################################################
+# nsteps = 6
+# psim = RolloutSimulator(max_steps = nsteps)
+# simprob = rip
+# sol = solip
+# bu = bus[1] # nominal
+# bu_ref = bus[2] # robust
+# binit = binits[1]
+# simulate(psim, simprob, sol, bu, bu_ref, binit, sinit; verbose = true)
+#
+# simprob = rip
+# simulate_worst(psim, simprob, sol, bu, binit, sinit, solrip.alphas; verbose = true)
+#
+# println("Data Collection Complete.")
 
 ######################################################
 # Results
